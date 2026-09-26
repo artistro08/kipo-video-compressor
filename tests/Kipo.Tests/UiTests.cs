@@ -316,6 +316,136 @@ public sealed class UiTests
 
     [STATestMethod]
     [Timeout(120_000)]
+    public void Window_HeightFitsContent_WhenEmpty()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+        Thread.Sleep(1000);
+
+        var window = _window.BoundingRectangle;
+        var zone   = ById("DropZone").BoundingRectangle;
+        var footer = ById("SizeCombo").BoundingRectangle;
+
+        Assert.IsTrue(window.Bottom - footer.Bottom < 40, $"Empty space under footer: {window.Bottom - footer.Bottom}px");
+        Assert.IsTrue(footer.Top - zone.Bottom < 80, $"Empty space between drop zone and footer: {footer.Top - zone.Bottom}px");
+    }
+
+    [STATestMethod]
+    [Timeout(300_000)]
+    public void Window_GrowsPerRow_CapsAtSixRows()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
+        Launch(new AppSettings { PresetMb = 10 });
+
+        var empty = SettledHeight();
+
+        PasteText(source);
+        WaitForRows(1, "Already under target", Short);
+        var one = SettledHeight();
+
+        PasteText(string.Join("\r\n", Enumerable.Repeat(source, 5)));
+        WaitForRowCount(6);
+        var six = SettledHeight();
+
+        PasteText(string.Join("\r\n", Enumerable.Repeat(source, 2)));
+        WaitForRowCount(8);
+        var eight = SettledHeight();
+
+        Assert.IsTrue(one > empty + 20, $"Didn't grow for first row: {empty} -> {one}");
+        Assert.IsTrue(six > one + 100, $"Didn't grow to six rows: {one} -> {six}");
+        Assert.IsTrue(Math.Abs(eight - six) <= 4, $"Grew past six rows: {six} -> {eight}");
+    }
+
+    [STATestMethod]
+    [Timeout(300_000)]
+    public void Window_DragStopsAtContentHeight()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
+        Launch(new AppSettings { PresetMb = 10 });
+
+        PasteText(string.Join("\r\n", Enumerable.Repeat(source, 3)));
+        WaitForRowCount(3);
+        var content = SettledHeight();
+
+        // Shorter: allowed (also proves the edge drag works)
+        DragBottomEdge(-60);
+        var shorter = SettledHeight();
+        Assert.IsTrue(shorter < content - 30, $"Couldn't drag shorter: {content} -> {shorter}");
+
+        // Taller than content: stops at the content height
+        DragBottomEdge(250);
+        var taller = SettledHeight();
+        Assert.IsTrue(taller > shorter + 30, $"Couldn't drag back taller: {shorter} -> {taller}");
+        Assert.IsTrue(taller <= content + 4, $"Dragged past content: {content} -> {taller}");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Window_AnimatesHeightChange()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
+        Launch(new AppSettings { PresetMb = 10 });
+        SettledHeight();
+
+        var heights = new HashSet<int>();
+        PasteText(string.Join("\r\n", Enumerable.Repeat(source, 3)));
+
+        var clock = Stopwatch.StartNew();
+        while (clock.ElapsedMilliseconds < 1000)
+        {
+            heights.Add(_window.BoundingRectangle.Height);
+            Thread.Sleep(10);
+        }
+
+        Assert.IsTrue(heights.Count >= 4, $"Height jumped instead of animating: {string.Join(", ", heights)}");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Settings_KeepsWindowHeight()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+        var before = SettledHeight();
+
+        ById("SettingsButton").Click();
+        Assert.IsNotNull(ById("SettingsView"));
+
+        Assert.IsTrue(Math.Abs(SettledHeight() - before) <= 4, $"Settings changed the height: {before} -> {SettledHeight()}");
+    }
+
+    // Waits until the window stops resizing and returns its height
+    private int SettledHeight()
+    {
+        var last = -1;
+
+        for (var i = 0; i < 40; i++)
+        {
+            Thread.Sleep(150);
+            var now = _window.BoundingRectangle.Height;
+
+            if (now == last)
+            {
+                return now;
+            }
+
+            last = now;
+        }
+
+        return last;
+    }
+
+    private void WaitForRowCount(int count) =>
+        Assert.IsTrue(Retry.WhileFalse(() => Rows().Length == count, Short, TimeSpan.FromMilliseconds(250)).Result, $"Expected {count} rows, saw {Rows().Length}");
+
+    private void DragBottomEdge(int deltaY)
+    {
+        var rect  = _window.BoundingRectangle;
+        var start = new System.Drawing.Point(rect.X + rect.Width / 2, rect.Bottom - 2);
+
+        SlowDrag(start, new System.Drawing.Point(start.X, start.Y + deltaY));
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
     public void Settings_OpensOwnViewAndBackReturns()
     {
         Launch(new AppSettings { PresetMb = 10 });

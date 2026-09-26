@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
+using Microsoft.UI.Windowing;
 using Windows.Graphics;
 
 namespace Kipo;
@@ -17,12 +18,11 @@ namespace Kipo;
 /// </remarks>
 public sealed partial class MainWindow : Window
 {
-    private const int WindowWidth  = 420;
-    private const int WindowHeight = 640;
-
+    private const int    WindowWidth        = 420;
     private const double DropZoneWidthShare = 0.85;
 
     private static readonly TimeSpan CopiedAlertDuration = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan HeightAnimation     = TimeSpan.FromMilliseconds(250);
 
     private readonly SettingsStore _settingsStore = new(KipoPaths.SettingsFile);
     private readonly CompressQueue _queue;
@@ -30,6 +30,12 @@ public sealed partial class MainWindow : Window
     private bool _loadingControls;
     private bool _dialogOpen;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _copiedTimer;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _heightTimer;
+    private System.Diagnostics.Stopwatch? _heightClock;
+    private Action? _heightDone;
+    private int _heightFrom;
+    private int _heightTo;
+    private int _minOuterHeight;
 
     public MainWindow()
     {
@@ -44,7 +50,8 @@ public sealed partial class MainWindow : Window
 
         _queue.BatchCompleted += OnBatchCompleted;
         QueueList.ItemsSource  = _queue.Items;
-        Root.Loaded           += (_, _) => ResizeForDpi();
+        Root.Loaded           += (_, _) => OnFirstLoaded();
+        CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => FitToContentLater());
 
         _queue.Items.CollectionChanged += (_, _) => UpdateQueueVisibility();
 
@@ -197,7 +204,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // Empty: drop section centered in the window. With files: drop section on top, queue and Cancel all below
+    // Queue, separator and Cancel all only show once there are files; the window then grows to fit
     private void UpdateQueueVisibility()
     {
         var hasItems = _queue.Items.Count > 0;
@@ -205,8 +212,8 @@ public sealed partial class MainWindow : Window
         QueueList.Visibility      = hasItems ? Visibility.Visible : Visibility.Collapsed;
         QueueSeparator.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
         CancelAllLink.Visibility  = hasItems ? Visibility.Visible : Visibility.Collapsed;
-        DropRow.Height           = hasItems ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
-        QueueRow.Height          = hasItems ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
+
+        FitToContentLater();
     }
 
     private void OnCancelAllClick(object sender, RoutedEventArgs e) => _queue.CancelAll();
@@ -334,6 +341,86 @@ public sealed partial class MainWindow : Window
     private void OnCopiedTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args) => CopiedBar.IsOpen = false;
 
     // =========================================================================
+    // WINDOW HEIGHT
+    // =========================================================================
+
+    // Runs after the current layout change lands, so the measure sees the new rows
+    private void FitToContentLater() =>
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => FitToContent(animate: true));
+
+    // Sizes the window to its content: the height the page wants with nothing squeezed.
+    // Dragging taller than that is blocked; dragging shorter is allowed down to the empty-page height.
+    private void FitToContent(bool animate)
+    {
+        if (SettingsView.Visibility == Visibility.Visible || Content is not FrameworkElement page || page.XamlRoot is null)
+        {
+            return;
+        }
+
+        // Natural content height (star rows act like Auto when height is unlimited)
+        page.Measure(new Windows.Foundation.Size(page.ActualWidth, double.PositiveInfinity));
+
+        var scale        = page.XamlRoot.RasterizationScale;
+        var clientTarget = (int)Math.Ceiling(page.DesiredSize.Height * scale);
+        var frame        = AppWindow.Size.Height - AppWindow.ClientSize.Height;
+        var outerTarget  = clientTarget + frame;
+        var presenter    = (OverlappedPresenter)AppWindow.Presenter;
+
+        page.InvalidateMeasure();
+
+        if (_minOuterHeight == 0)
+        {
+            _minOuterHeight = outerTarget;
+        }
+
+        presenter.PreferredMinimumHeight = Math.Min(_minOuterHeight, outerTarget);
+        presenter.PreferredMaximumHeight = Math.Max(outerTarget, AppWindow.Size.Height);
+
+        if (!animate)
+        {
+            AppWindow.ResizeClient(new SizeInt32(AppWindow.ClientSize.Width, clientTarget));
+            presenter.PreferredMaximumHeight = outerTarget;
+            return;
+        }
+
+        AnimateClientHeight(clientTarget, () => presenter.PreferredMaximumHeight = outerTarget);
+    }
+
+    // Eases the window height to the target over a quarter second
+    private void AnimateClientHeight(int target, Action done)
+    {
+        _heightFrom  = AppWindow.ClientSize.Height;
+        _heightTo    = target;
+        _heightDone  = done;
+        _heightClock = System.Diagnostics.Stopwatch.StartNew();
+
+        if (_heightTimer is null)
+        {
+            _heightTimer             = DispatcherQueue.CreateTimer();
+            _heightTimer.Interval    = TimeSpan.FromMilliseconds(15);
+            _heightTimer.IsRepeating = true;
+            _heightTimer.Tick       += OnHeightTimerTick;
+        }
+
+        _heightTimer.Start();
+    }
+
+    private void OnHeightTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        var progress = Math.Min(1, _heightClock!.Elapsed.TotalMilliseconds / HeightAnimation.TotalMilliseconds);
+        var eased    = 1 - Math.Pow(1 - progress, 3);
+        var height   = (int)Math.Round(_heightFrom + (_heightTo - _heightFrom) * eased);
+
+        AppWindow.ResizeClient(new SizeInt32(AppWindow.ClientSize.Width, height));
+
+        if (progress >= 1)
+        {
+            sender.Stop();
+            _heightDone?.Invoke();
+        }
+    }
+
+    // =========================================================================
     // SETTINGS VIEW
     // =========================================================================
 
@@ -353,12 +440,18 @@ public sealed partial class MainWindow : Window
         {
             CopiedBar.IsOpen = false;
         }
+        else
+        {
+            FitToContentLater();
+        }
     }
 
-    private void ResizeForDpi()
+    // First show: set the width, then snap the height to the content without animating
+    private void OnFirstLoaded()
     {
         var scale = Content.XamlRoot?.RasterizationScale ?? 1.0;
 
-        AppWindow.Resize(new SizeInt32((int)(WindowWidth * scale), (int)(WindowHeight * scale)));
+        AppWindow.ResizeClient(new SizeInt32((int)(WindowWidth * scale), AppWindow.ClientSize.Height));
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => FitToContent(animate: false));
     }
 }

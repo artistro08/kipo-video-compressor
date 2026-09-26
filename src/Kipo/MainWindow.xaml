@@ -39,11 +39,9 @@
               Drop="OnDrop"
               SizeChanged="OnRootSizeChanged">
             <Grid.RowDefinitions>
-                <RowDefinition x:Name="DropRow"
-                               Height="*" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition x:Name="QueueRow"
-                               Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -55,8 +53,7 @@
 
             <!-- Drop Section -->
             <Grid Grid.Row="0"
-                  Height="280"
-                  VerticalAlignment="Center">
+                  Height="280">
                 <Grid x:Name="DropZone"
                       Height="240"
                       HorizontalAlignment="Center"
@@ -96,10 +93,19 @@
             <!-- Queue -->
             <ListView x:Name="QueueList"
                       Grid.Row="2"
+                      MaxHeight="336"
                       SelectionMode="None"
                       Visibility="Collapsed"
                       AutomationProperties.AutomationId="QueueList"
                       AutomationProperties.Name="Queue">
+                <!-- Fixed 56px rows so six rows = 336px, the height cap before scrolling -->
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem"
+                           BasedOn="{StaticResource DefaultListViewItemStyle}">
+                        <Setter Property="Height"
+                                Value="56" />
+                    </Style>
+                </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="core:QueueItem">
                         <Grid ColumnSpacing="12"
