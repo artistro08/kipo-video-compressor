@@ -36,8 +36,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Assets\*.png" />
-    <Content Include="Assets\kipo.ico" />
+    <!-- Copied on build and publish so the unpackaged (MSI) app has its icons too -->
+    <Content Include="Assets\*.png;Assets\kipo.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
