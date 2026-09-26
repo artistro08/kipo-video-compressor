@@ -13,6 +13,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Title Bar -->
@@ -26,16 +27,16 @@
         <!-- Content -->
         <Grid x:Name="Root"
               Grid.Row="1"
-              Padding="16,4,16,16"
-              RowSpacing="12"
+              Padding="16,0,16,8"
               AllowDrop="True"
               Background="Transparent"
               DragOver="OnDragOver"
               Drop="OnDrop">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition x:Name="DropRow"
+                               Height="*" />
+                <RowDefinition x:Name="QueueRow"
+                               Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -45,58 +46,42 @@
                                      Invoked="OnPasteInvoked" />
             </Grid.KeyboardAccelerators>
 
-            <!-- Drop Zone -->
-            <Grid x:Name="DropZone"
-                  Grid.Row="0"
-                  Height="140"
-                  AutomationProperties.AutomationId="DropZone"
-                  AutomationProperties.Name="Drop zone">
-                <Rectangle RadiusX="8"
-                           RadiusY="8"
-                           Stroke="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
-                           StrokeThickness="1.5"
-                           StrokeDashArray="4 3"
-                           Fill="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
-                <StackPanel HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Spacing="10">
-                    <TextBlock Text="Drop, paste (Ctrl+V), or browse"
-                               HorizontalAlignment="Center"
-                               Style="{StaticResource BodyStrongTextBlockStyle}" />
-                    <Button x:Name="BrowseButton"
-                            HorizontalAlignment="Center"
-                            Content="Browse"
-                            AutomationProperties.AutomationId="BrowseButton"
-                            Click="OnBrowseClick" />
-                </StackPanel>
+            <!-- Drop Section -->
+            <Grid Grid.Row="0"
+                  Height="280"
+                  VerticalAlignment="Center">
+                <Grid x:Name="DropZone"
+                      Height="140"
+                      VerticalAlignment="Center"
+                      AutomationProperties.AutomationId="DropZone"
+                      AutomationProperties.Name="Drop zone">
+                    <Rectangle RadiusX="8"
+                               RadiusY="8"
+                               Stroke="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                               StrokeThickness="1.5"
+                               StrokeDashArray="4 3"
+                               Fill="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="10">
+                        <TextBlock Text="Drop, paste (Ctrl+V), or browse"
+                                   HorizontalAlignment="Center"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Button x:Name="BrowseButton"
+                                HorizontalAlignment="Center"
+                                Content="Browse"
+                                AutomationProperties.AutomationId="BrowseButton"
+                                Click="OnBrowseClick" />
+                    </StackPanel>
+                </Grid>
             </Grid>
-            <!-- /Drop Zone -->
-
-            <!-- Target Size -->
-            <StackPanel Grid.Row="1"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                <ComboBox x:Name="SizeCombo"
-                          Header="Target size"
-                          MinWidth="140"
-                          AutomationProperties.AutomationId="SizeCombo"
-                          SelectionChanged="OnSizeChanged" />
-                <NumberBox x:Name="CustomSizeBox"
-                           Header="MB"
-                           Width="120"
-                           Minimum="1"
-                           Maximum="10000"
-                           SpinButtonPlacementMode="Compact"
-                           Visibility="Collapsed"
-                           AutomationProperties.AutomationId="CustomSizeBox"
-                           AutomationProperties.Name="Custom size in MB"
-                           ValueChanged="OnCustomSizeChanged" />
-            </StackPanel>
+            <!-- /Drop Section -->
 
             <!-- Queue -->
             <ListView x:Name="QueueList"
-                      Grid.Row="2"
+                      Grid.Row="1"
                       SelectionMode="None"
+                      Visibility="Collapsed"
                       AutomationProperties.AutomationId="QueueList"
                       AutomationProperties.Name="Queue">
                 <ListView.ItemTemplate>
@@ -129,19 +114,69 @@
             </ListView>
             <!-- /Queue -->
 
-            <!-- Bottom Bar -->
-            <Grid Grid.Row="3">
-                <Button x:Name="CancelAllButton"
-                        Content="Cancel all"
-                        AutomationProperties.AutomationId="CancelAllButton"
-                        Click="OnCancelAllClick" />
+            <!-- Cancel All -->
+            <HyperlinkButton x:Name="CancelAllLink"
+                             Grid.Row="2"
+                             HorizontalAlignment="Right"
+                             Content="Cancel all"
+                             Visibility="Collapsed"
+                             AutomationProperties.AutomationId="CancelAllLink"
+                             Click="OnCancelAllClick" />
+        </Grid>
+        <!-- /Content -->
+
+        <!-- Footer -->
+        <Border Grid.Row="2"
+                Padding="16,10"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Target Size -->
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                    <TextBlock Text="Target size"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="SizeCombo"
+                              MinWidth="110"
+                              AutomationProperties.AutomationId="SizeCombo"
+                              AutomationProperties.Name="Target size"
+                              SelectionChanged="OnSizeChanged" />
+                    <NumberBox x:Name="CustomSizeBox"
+                               Width="110"
+                               Minimum="1"
+                               Maximum="10000"
+                               PlaceholderText="MB"
+                               SpinButtonPlacementMode="Compact"
+                               Visibility="Collapsed"
+                               AutomationProperties.AutomationId="CustomSizeBox"
+                               AutomationProperties.Name="Custom size in MB"
+                               ValueChanged="OnCustomSizeChanged" />
+                </StackPanel>
+
+                <!-- Settings: icon only, no background or hover -->
                 <Button x:Name="SettingsButton"
-                        HorizontalAlignment="Right"
+                        Grid.Column="1"
+                        Padding="6"
+                        VerticalAlignment="Center"
+                        UseSystemFocusVisuals="True"
                         AutomationProperties.AutomationId="SettingsButton"
                         AutomationProperties.Name="Settings"
                         ToolTipService.ToolTip="Settings">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <ContentPresenter Padding="{TemplateBinding Padding}"
+                                              Background="Transparent"
+                                              Content="{TemplateBinding Content}" />
+                        </ControlTemplate>
+                    </Button.Template>
                     <FontIcon Glyph="&#xE713;"
-                              FontSize="14" />
+                              FontSize="16" />
                     <Button.Flyout>
                         <Flyout>
                             <ToggleSwitch x:Name="CopyToClipboardToggle"
@@ -152,8 +187,7 @@
                     </Button.Flyout>
                 </Button>
             </Grid>
-            <!-- /Bottom Bar -->
-        </Grid>
-        <!-- /Content -->
+        </Border>
+        <!-- /Footer -->
     </Grid>
 </Window>

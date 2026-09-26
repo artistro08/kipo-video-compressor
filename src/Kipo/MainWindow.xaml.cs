@@ -18,7 +18,7 @@ namespace Kipo;
 public sealed partial class MainWindow : Window
 {
     private const int WindowWidth  = 420;
-    private const int WindowHeight = 520;
+    private const int WindowHeight = 640;
 
     private readonly SettingsStore _settingsStore = new(KipoPaths.SettingsFile);
     private readonly CompressQueue _queue;
@@ -40,8 +40,23 @@ public sealed partial class MainWindow : Window
         _queue.BatchCompleted += OnBatchCompleted;
         QueueList.ItemsSource  = _queue.Items;
         Root.Loaded           += (_, _) => ResizeForDpi();
+
+        _queue.Items.CollectionChanged += (_, _) => UpdateQueueVisibility();
+
         LoadControls();
     }
+
+    /// <summary>Shows the window and brings it in front of other apps.</summary>
+    public void BringToFront()
+    {
+        AppWindow.Show();
+        Activate();
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
+    }
+
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static partial bool SetForegroundWindow(IntPtr hwnd);
 
     /// <summary>Shows a simple error dialog.</summary>
     /// <remarks>
@@ -175,6 +190,17 @@ public sealed partial class MainWindow : Window
         {
             item.Cancel();
         }
+    }
+
+    // Empty: drop section centered in the window. With files: drop section on top, queue and Cancel all below
+    private void UpdateQueueVisibility()
+    {
+        var hasItems = _queue.Items.Count > 0;
+
+        QueueList.Visibility     = hasItems ? Visibility.Visible : Visibility.Collapsed;
+        CancelAllLink.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+        DropRow.Height           = hasItems ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+        QueueRow.Height          = hasItems ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
     }
 
     private void OnCancelAllClick(object sender, RoutedEventArgs e) => _queue.CancelAll();

@@ -12,6 +12,9 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Version>1.0.0</Version>
     <KipoPackaging Condition="'$(KipoPackaging)' == ''">Unpackaged</KipoPackaging>
+    <!-- Program.cs supplies Main so only one copy of Kipo runs -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- bin/obj hold both packaging modes; keep their generated files out of the compile -->
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**</DefaultItemExcludes>
   </PropertyGroup>

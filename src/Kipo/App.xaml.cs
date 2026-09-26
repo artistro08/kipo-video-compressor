@@ -28,6 +28,15 @@ public partial class App : Application
         };
     }
 
+    /// <summary>Called when a second launch is redirected here; shows the existing window.</summary>
+    public static void BringMainWindowToFront()
+    {
+        if (Current is App { _window: { } window })
+        {
+            window.DispatcherQueue.TryEnqueue(window.BringToFront);
+        }
+    }
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _window = new MainWindow();

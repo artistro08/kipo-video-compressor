@@ -124,10 +124,11 @@ public sealed class UiTests
         Mouse.Up(MouseButton.Left);
     }
 
+    // The queue is hidden until the first file, so click the always-present drop zone
     private void FocusQueueAndPaste()
     {
         _window.Focus();
-        ById("QueueList").Click();
+        ById("DropZone").Click();
         Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_V);
     }
 
@@ -275,8 +276,44 @@ public sealed class UiTests
         Thread.Sleep(2000);
 
         Assert.IsNull(_window.FindFirstDescendant(cf => cf.ByName("Couldn't open the file picker.")), "Error shown after cancel");
-        Assert.AreEqual(0, Rows().Length);
+        Assert.IsNull(_window.FindFirstDescendant(cf => cf.ByAutomationId("QueueList")), "Queue shown after cancel");
     }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Queue_HiddenUntilFileAdded()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
+        Launch(new AppSettings { PresetMb = 10 });
+
+        Assert.IsNull(_window.FindFirstDescendant(cf => cf.ByAutomationId("QueueList")), "Queue shown while empty");
+        Assert.IsNull(_window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")), "Cancel all shown while empty");
+
+        PasteText(source);
+
+        WaitForRows(1, "Already under target", Short);
+        Assert.IsNotNull(ById("CancelAllLink"));
+        Assert.AreEqual(ControlType.Hyperlink, ById("CancelAllLink").ControlType);
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void SecondLaunch_ActivatesExistingWindow()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        var start = new ProcessStartInfo(ExePath) { UseShellExecute = false };
+        start.Environment["KIPO_DATA_DIR"] = _dataDir;
+
+        using var second = Process.Start(start) ?? throw new AssertFailedException("Second launch failed");
+
+        Assert.IsTrue(second.WaitForExit(15_000), "Second instance stayed open");
+        Assert.AreEqual(1, Process.GetProcessesByName("Kipo").Count(p => string.Equals(p.MainModule?.FileName, ExePath, StringComparison.OrdinalIgnoreCase)), "More than one Kipo running");
+        Assert.IsTrue(Retry.WhileFalse(() => _window.IsAvailable && _window.Properties.NativeWindowHandle.Value == GetForegroundWindow(), Short).Result, "Existing window not brought to front");
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     [STATestMethod]
     [Timeout(120_000)]
