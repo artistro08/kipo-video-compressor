@@ -20,7 +20,9 @@ namespace Kipo;
 /// </remarks>
 public sealed partial class CompressDialog : Window
 {
-    private const int WindowWidth = 520;
+    private const int FormWidth    = 420;
+    private const int ListWidth    = 520;
+    private const int ShownFiles   = 3;
 
     private static readonly TimeSpan CopiedAlertDuration = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan DrillDuration       = TimeSpan.FromMilliseconds(300);
@@ -45,7 +47,15 @@ public sealed partial class CompressDialog : Window
 
         _settings = _settingsStore.Load();
         _queue    = new CompressQueue((item, progress, token) => Compressor.CompressAsync(item.Path, item.TargetBytes, progress, token));
-        _fitter   = new WindowFitter(this, WindowWidth, () => false);
+        _fitter   = new WindowFitter(this, request.Custom ? FormWidth : ListWidth, () => false);
+
+        // Close button only; the window sizes itself
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsMinimizable = false;
+            presenter.IsMaximizable = false;
+            presenter.IsResizable   = false;
+        }
 
         _queue.BatchCompleted   += OnBatchCompleted;
         QueueView.LayoutChanged += (_, _) => _fitter.FitLater();
@@ -64,6 +74,7 @@ public sealed partial class CompressDialog : Window
         if (request.Custom)
         {
             _pending.AddRange(request.Paths);
+            ShowPendingFiles();
             CustomDialogSizeBox.Value = _settings.CustomMb;
             CustomForm.Visibility     = Visibility.Visible;
             QueueView.Visibility      = Visibility.Collapsed;
@@ -83,6 +94,8 @@ public sealed partial class CompressDialog : Window
         if (CustomForm.Visibility == Visibility.Visible)
         {
             _pending.AddRange(paths);
+            ShowPendingFiles();
+            _fitter.FitLater();
             return;
         }
 
@@ -110,6 +123,19 @@ public sealed partial class CompressDialog : Window
 
     private void OnCompressClick(object sender, RoutedEventArgs e) => StartCustom();
 
+    private void OnCancelClick(object sender, RoutedEventArgs e) => Close();
+
+    // Lists the first few selected files, then "and N more"
+    private void ShowPendingFiles()
+    {
+        CustomFileList.ItemsSource = _pending.Take(ShownFiles).Select(Path.GetFileName).ToList();
+
+        var more = _pending.Count - ShownFiles;
+
+        CustomMoreFiles.Text       = more > 0 ? $"and {more} more" : "";
+        CustomMoreFiles.Visibility = more > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     // Saves the size, drills from the form into the list, and starts the pending files
     private void StartCustom()
     {
@@ -132,6 +158,7 @@ public sealed partial class CompressDialog : Window
             Log.Error("Couldn't save settings", ex);
         }
 
+        _fitter.SetWidth(ListWidth);
         DrillIntoList();
         _queue.AddPaths(_pending.ToList(), _targetBytes);
         _pending.Clear();

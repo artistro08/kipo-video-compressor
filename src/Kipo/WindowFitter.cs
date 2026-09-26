@@ -15,7 +15,7 @@ namespace Kipo;
 /// (smallest) height the window had. Used by the main window and the compress dialog.
 /// </remarks>
 /// <param name="window">Window to size.</param>
-/// <param name="width">Window width in DIPs.</param>
+/// <param name="width">Starting window width in DIPs; change it with <see cref="SetWidth"/>.</param>
 /// <param name="paused">Returns true while sizing should wait (for example, settings open).</param>
 public sealed class WindowFitter(Window window, int width, Func<bool> paused)
 {
@@ -28,14 +28,27 @@ public sealed class WindowFitter(Window window, int width, Func<bool> paused)
     private int _to;
     private int _minOuterHeight;
 
+    private int _width = width;
+
     private AppWindow AppWindow => window.AppWindow;
+
+    /// <summary>Changes the window width (DIPs) right away; height follows its content.</summary>
+    /// <param name="dips">New width.</param>
+    public void SetWidth(int dips)
+    {
+        _width    = dips;
+        var scale = window.Content.XamlRoot?.RasterizationScale ?? 1.0;
+
+        AppWindow.ResizeClient(new SizeInt32((int)(_width * scale), AppWindow.ClientSize.Height));
+        FitLater();
+    }
 
     /// <summary>First show: sets the width and snaps the height without animating.</summary>
     public void FitFirst()
     {
         var scale = window.Content.XamlRoot?.RasterizationScale ?? 1.0;
 
-        AppWindow.ResizeClient(new SizeInt32((int)(width * scale), AppWindow.ClientSize.Height));
+        AppWindow.ResizeClient(new SizeInt32((int)(_width * scale), AppWindow.ClientSize.Height));
         window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Fit(animate: false));
     }
 

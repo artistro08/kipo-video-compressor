@@ -85,6 +85,63 @@ public sealed partial class UiTests
     }
 
     [STATestMethod]
+    [Timeout(120_000)]
+    public void CustomForm_Layout()
+    {
+        var sources = TestVideos.Batch.Select(name => TestVideos.CopyToTemp(_dir, name)).ToArray();
+
+        LaunchCompress(new AppSettings { CustomMb = 20 }, "custom", sources);
+
+        var box      = ById("CustomDialogSizeBox").BoundingRectangle;
+        var compress = ById("CustomDialogCompressButton").BoundingRectangle;
+        var cancel   = ById("CustomDialogCancelButton").BoundingRectangle;
+        var window   = _window.BoundingRectangle;
+        var scale    = box.Height / 32.0;
+
+        // Box, Compress and Cancel share one row
+        Assert.IsTrue(Math.Abs(box.Y + box.Height / 2 - (compress.Y + compress.Height / 2)) <= 3, "Compress isn't on the size row");
+        Assert.IsTrue(Math.Abs(box.Y + box.Height / 2 - (cancel.Y + cancel.Height / 2)) <= 3, "Cancel isn't on the size row");
+        Assert.IsTrue(compress.X > box.Right && cancel.X > compress.Right, "Expected box, then Compress, then Cancel");
+
+        // The selected files are listed
+        foreach (var source in sources)
+        {
+            Assert.IsNotNull(_window.FindFirstDescendant(cf => cf.ByName(Path.GetFileName(source))), $"{Path.GetFileName(source)} not shown");
+        }
+
+        // Only a close button, and no wider than it needs to be
+        // Windows still lists hidden caption buttons to accessibility tools; they must not be usable
+        foreach (var name in new[] { "Minimize", "Maximize" })
+        {
+            var button = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName(name)));
+            var closeRect = _window.FindFirstDescendant(cf => cf.ByName("Close"))?.BoundingRectangle;
+            Assert.IsTrue(button is null || button.BoundingRectangle.Width == 0 || button.Properties.IsOffscreen.ValueOrDefault || !button.IsEnabled, $"{name} is shown: {button?.BoundingRectangle} close {closeRect}");
+        }
+
+        Assert.IsTrue(window.Width <= 440 * scale, $"Form window too wide: {window.Width}px");
+
+        // Title sits in the middle of a title bar as tall as the close button
+        var close = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")))!.BoundingRectangle;
+        var title = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Kipo Video Compressor")))!.BoundingRectangle;
+
+        Assert.IsTrue(Math.Abs(close.Y + close.Height / 2 - (title.Y + title.Height / 2)) <= 3 * scale, $"Title not centered with the close button (title {title}, close {close})");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void CustomForm_Cancel_ClosesWithoutCompressing()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Small);
+
+        LaunchCompress(new AppSettings { CustomMb = 20 }, "custom", source);
+
+        ById("CustomDialogCancelButton").Click();
+
+        Assert.IsTrue(Retry.WhileFalse(() => _app!.HasExited, Short).Result, "Dialog didn't close");
+        Assert.AreEqual(1, Directory.GetFiles(_dir).Length, "Something was written");
+    }
+
+    [STATestMethod]
     [Timeout(180_000)]
     public void Compress_QuickLaunches_ShareOneDialog()
     {
