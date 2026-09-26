@@ -63,7 +63,13 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
     public ItemStatus Status
     {
         get => _status;
-        set => Set(ref _status, value, nameof(StatusText), nameof(CanCancel));
+        set
+        {
+            if (Set(ref _status, value, nameof(StatusText), nameof(CanCancel)))
+            {
+                Raise(nameof(IsDone));
+            }
+        }
     }
 
     /// <summary>Encode progress, 0–100.</summary>
@@ -80,6 +86,9 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
     }
 
     public bool CanCancel => Status is ItemStatus.Waiting or ItemStatus.Compressing;
+
+    /// <summary>True once the file needs nothing more: compressed, or already under target. The row shows a checkmark.</summary>
+    public bool IsDone => Status is ItemStatus.Done or ItemStatus.DoneOverTarget or ItemStatus.Skipped;
 
     public string StatusText => Status switch
     {
@@ -111,12 +120,12 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
 
     public void Dispose() => _cancel.Dispose();
 
-    // Property name comes from the calling setter
-    private void Set<T>(ref T field, T value, string first, string? second = null, [CallerMemberName] string name = "")
+    // Property name comes from the calling setter; returns true when the value changed
+    private bool Set<T>(ref T field, T value, string first, string? second = null, [CallerMemberName] string name = "")
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
         {
-            return;
+            return false;
         }
 
         field = value;
@@ -127,6 +136,8 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
         {
             Raise(second);
         }
+
+        return true;
     }
 
     private void Raise(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

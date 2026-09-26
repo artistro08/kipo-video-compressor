@@ -20,11 +20,16 @@ public sealed partial class MainWindow : Window
     private const int WindowWidth  = 420;
     private const int WindowHeight = 640;
 
+    private const double DropZoneWidthShare = 0.85;
+
+    private static readonly TimeSpan CopiedAlertDuration = TimeSpan.FromSeconds(3);
+
     private readonly SettingsStore _settingsStore = new(KipoPaths.SettingsFile);
     private readonly CompressQueue _queue;
     private AppSettings _settings;
     private bool _loadingControls;
     private bool _dialogOpen;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _copiedTimer;
 
     public MainWindow()
     {
@@ -197,8 +202,9 @@ public sealed partial class MainWindow : Window
     {
         var hasItems = _queue.Items.Count > 0;
 
-        QueueList.Visibility     = hasItems ? Visibility.Visible : Visibility.Collapsed;
-        CancelAllLink.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+        QueueList.Visibility      = hasItems ? Visibility.Visible : Visibility.Collapsed;
+        QueueSeparator.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+        CancelAllLink.Visibility  = hasItems ? Visibility.Visible : Visibility.Collapsed;
         DropRow.Height           = hasItems ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
         QueueRow.Height          = hasItems ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
     }
@@ -217,6 +223,7 @@ public sealed partial class MainWindow : Window
         try
         {
             await ClipboardInput.CopyFileAsync(outputPath);
+            ShowCopiedAlert();
         }
         catch (Exception ex) when (ex.HResult < 0 || ex is IOException)
         {
@@ -306,6 +313,47 @@ public sealed partial class MainWindow : Window
     // =========================================================================
     // WINDOW
     // =========================================================================
+
+    // Drop zone keeps a margin from the edges but grows and shrinks with the window
+    private void OnRootSizeChanged(object sender, SizeChangedEventArgs e) =>
+        DropZone.Width = e.NewSize.Width * DropZoneWidthShare;
+
+    // Copied alert hides itself after a few seconds
+    private void ShowCopiedAlert()
+    {
+        CopiedBar.IsOpen = true;
+
+        _copiedTimer ??= DispatcherQueue.CreateTimer();
+        _copiedTimer.Interval    = CopiedAlertDuration;
+        _copiedTimer.IsRepeating = false;
+        _copiedTimer.Tick       -= OnCopiedTimerTick;
+        _copiedTimer.Tick       += OnCopiedTimerTick;
+        _copiedTimer.Start();
+    }
+
+    private void OnCopiedTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args) => CopiedBar.IsOpen = false;
+
+    // =========================================================================
+    // SETTINGS VIEW
+    // =========================================================================
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e) => ShowSettings(true);
+
+    private void OnBackRequested(TitleBar sender, object args) => ShowSettings(false);
+
+    // Settings replace the main view; the title bar back arrow returns
+    private void ShowSettings(bool show)
+    {
+        SettingsView.Visibility         = show ? Visibility.Visible : Visibility.Collapsed;
+        Root.Visibility                 = show ? Visibility.Collapsed : Visibility.Visible;
+        Footer.Visibility               = show ? Visibility.Collapsed : Visibility.Visible;
+        AppTitleBar.IsBackButtonVisible = show;
+
+        if (show)
+        {
+            CopiedBar.IsOpen = false;
+        }
+    }
 
     private void ResizeForDpi()
     {

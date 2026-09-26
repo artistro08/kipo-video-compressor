@@ -127,8 +127,11 @@ public sealed class UiTests
     // The queue is hidden until the first file, so click the always-present drop zone
     private void FocusQueueAndPaste()
     {
+        // Click a corner of the drop zone; the center holds the Browse button
+        var zone = ById("DropZone").BoundingRectangle;
+
         _window.Focus();
-        ById("DropZone").Click();
+        Mouse.Click(new System.Drawing.Point(zone.X + 20, zone.Y + 20));
         Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_V);
     }
 
@@ -294,6 +297,52 @@ public sealed class UiTests
         WaitForRows(1, "Already under target", Short);
         Assert.IsNotNull(ById("CancelAllLink"));
         Assert.AreEqual(ControlType.Hyperlink, ById("CancelAllLink").ControlType);
+        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByAutomationId("RowIcon").And(cf.ByName("Done"))), "No checkmark on finished row");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void DropZone_FillsMostOfTheWidth()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        var zone   = ById("DropZone").BoundingRectangle;
+        var window = _window.BoundingRectangle;
+        var share  = zone.Width / (double)window.Width;
+
+        Assert.IsTrue(share is > 0.8 and < 0.9, $"Drop zone is {share:P0} of the window width");
+        Assert.IsTrue(zone.Height > zone.Width * 0.4, $"Drop zone too short: {zone.Height}px");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Settings_OpensOwnViewAndBackReturns()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        ById("SettingsButton").Click();
+        Assert.IsNotNull(ById("SettingsView"));
+        Assert.IsNotNull(ById("CopyToClipboardToggle"));
+
+        GoBack();
+
+        Assert.IsNotNull(ById("DropZone"));
+    }
+
+    // The back arrow slides in; click it until the settings view is gone
+    private void GoBack()
+    {
+        // Let the arrow finish sliding in; a click mid-animation lands on the drag area
+        Thread.Sleep(1500);
+
+        var closed = Retry.WhileFalse(() =>
+        {
+            _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Back")))?.Click();
+            Thread.Sleep(500);
+            return _window.FindFirstDescendant(cf => cf.ByAutomationId("SettingsView")) is null;
+        }, Short, TimeSpan.FromMilliseconds(250)).Result;
+
+        Assert.IsTrue(closed, "Settings view still open");
     }
 
     [STATestMethod]
@@ -343,11 +392,12 @@ public sealed class UiTests
         PasteText(first);
         WaitForRows(1, "Done", Long);
         Assert.IsTrue(Retry.WhileFalse(ClipboardHasFile, Short).Result, "Result not on clipboard");
+        Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByName("Copied to clipboard")), Short).Result, "No copied alert");
 
         // Off: clipboard keeps the pasted text
         ById("SettingsButton").Click();
         ById("CopyToClipboardToggle").AsToggleButton().Toggle();
-        Keyboard.Type(VirtualKeyShort.ESCAPE);
+        GoBack();
 
         PasteText(first);
         WaitForRows(2, "Done", Long);

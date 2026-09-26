@@ -211,6 +211,33 @@ public sealed class CompressQueueTests
     }
 
     [TestMethod]
+    [DataRow(ItemStatus.Done, true)]
+    [DataRow(ItemStatus.DoneOverTarget, true)]
+    [DataRow(ItemStatus.Skipped, true)]
+    [DataRow(ItemStatus.Waiting, false)]
+    [DataRow(ItemStatus.Compressing, false)]
+    [DataRow(ItemStatus.Failed, false)]
+    [DataRow(ItemStatus.Canceled, false)]
+    public void IsDone_OnlyForFinishedFiles(ItemStatus status, bool expected)
+    {
+        using var item = new QueueItem(P("a.mp4"), 100) { Status = status };
+
+        Assert.AreEqual(expected, item.IsDone);
+    }
+
+    [TestMethod]
+    public void IsDone_RaisesChangeWhenStatusChanges()
+    {
+        using var item = new QueueItem(P("a.mp4"), 100);
+        var changed = new List<string?>();
+        item.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        item.Status = ItemStatus.Done;
+
+        CollectionAssert.Contains(changed, nameof(QueueItem.IsDone));
+    }
+
+    [TestMethod]
     public void ShouldCopy_SingleDone_ReturnsOutput()
     {
         using var item = new QueueItem(P("a.mp4"), 100) { Status = ItemStatus.Done, OutputPath = @"C:\x-compressed.mp4" };
