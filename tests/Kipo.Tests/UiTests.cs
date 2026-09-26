@@ -409,30 +409,55 @@ public sealed class UiTests
     public void BackButton_IsSquare_AndAnimatesIn()
     {
         Launch(new AppSettings { PresetMb = 10 });
+        Thread.Sleep(800);
+
+        var bar = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.TitleBar).Or(cf.ByClassName("TitleBar")))!.BoundingRectangle;
 
         ById("SettingsButton").Click();
 
-        // Sample the arrow while it appears
-        var widths = new HashSet<int>();
+        // The window title slides right as the arrow opens up
+        var titleX = new HashSet<int>();
         var clock  = Stopwatch.StartNew();
 
         while (clock.ElapsedMilliseconds < 800)
         {
-            var arrow = _window.FindFirstDescendant(cf => cf.ByAutomationId("BackButton"));
-
-            if (arrow is not null)
+            if (TitleText() is { } title)
             {
-                widths.Add(arrow.BoundingRectangle.Width);
+                titleX.Add(title.BoundingRectangle.X);
             }
 
             Thread.Sleep(10);
         }
 
-        var back = ById("BackButton").BoundingRectangle;
+        var back  = ById("BackButton").BoundingRectangle;
+        var scale = back.Height / 32.0;
+        var left  = back.X - bar.X;
+        var top   = back.Y - bar.Y;
 
-        Assert.IsTrue(widths.Count >= 3, $"Back arrow didn't animate: {string.Join(", ", widths)}");
+        Assert.IsTrue(titleX.Count >= 3, $"Back arrow didn't animate in: {string.Join(", ", titleX)}");
         Assert.IsTrue(Math.Abs(back.Width - back.Height) <= 1, $"Back arrow not square: {back.Width}x{back.Height}");
+        Assert.IsTrue(Math.Abs(left - top) <= 2, $"Back arrow {left}px from the left, {top}px from the top");
+        Assert.IsTrue(TitleText()!.BoundingRectangle.X - back.Right <= 40 * scale, $"Icon and title too far from the arrow: {TitleText()!.BoundingRectangle.X - back.Right}px");
     }
+
+    [TestMethod]
+    public void AppIcon_IsKipoPurple()
+    {
+        if (!File.Exists(ExePath))
+        {
+            Assert.Inconclusive($"Build the app first: {ExePath}");
+        }
+
+        using var icon   = System.Drawing.Icon.ExtractAssociatedIcon(ExePath)!;
+        using var bitmap = icon.ToBitmap();
+        var corner       = bitmap.GetPixel(bitmap.Width / 6, bitmap.Height / 6);
+        var hue          = corner.GetHue();
+
+        Assert.IsTrue(hue is > 230 and < 290 && corner.GetSaturation() > 0.4, $"Exe icon corner isn't Kipo purple: {corner}");
+    }
+
+    private AutomationElement? TitleText() =>
+        _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Kipo")));
 
     [STATestMethod]
     [Timeout(120_000)]

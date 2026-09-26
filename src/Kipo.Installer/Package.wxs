@@ -8,6 +8,12 @@
         <MajorUpgrade DowngradeErrorMessage="A newer version of Kipo is already installed." />
         <MediaTemplate EmbedCab="yes" />
 
+        <!-- Icon in Settings > Apps -->
+        <Icon Id="KipoIcon"
+              SourceFile="$(PublishDir)Assets\kipo.ico" />
+        <Property Id="ARPPRODUCTICON"
+                  Value="KipoIcon" />
+
         <!-- App Files -->
         <StandardDirectory Id="ProgramFiles6432Folder">
             <Directory Id="INSTALLFOLDER"

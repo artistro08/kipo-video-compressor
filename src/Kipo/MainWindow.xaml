@@ -23,23 +23,29 @@
                 <ImageIconSource ImageSource="ms-appx:///Assets/Square44x44Logo.png" />
             </TitleBar.IconSource>
             <TitleBar.LeftHeader>
-                <!-- Square back arrow; slides in when settings open -->
-                <Button x:Name="BackButton"
+                <!-- Slot opens from 0 to 32px; the arrow sits 8px in (same as its top gap) and
+                     overlaps the slot's end so the app icon lands 8px after it -->
+                <Canvas x:Name="BackSlot"
                         Width="0"
                         Height="32"
-                        Margin="4,0,0,0"
-                        Padding="0"
-                        Opacity="0"
-                        Visibility="Collapsed"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        AutomationProperties.AutomationId="BackButton"
-                        AutomationProperties.Name="Back"
-                        ToolTipService.ToolTip="Back"
-                        Click="OnBackClick">
-                    <FontIcon Glyph="&#xE72B;"
-                              FontSize="12" />
-                </Button>
+                        VerticalAlignment="Center">
+                    <Button x:Name="BackButton"
+                            Canvas.Left="8"
+                            Width="32"
+                            Height="32"
+                            Padding="0"
+                            Opacity="0"
+                            Visibility="Collapsed"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            AutomationProperties.AutomationId="BackButton"
+                            AutomationProperties.Name="Back"
+                            ToolTipService.ToolTip="Back"
+                            Click="OnBackClick">
+                        <FontIcon Glyph="&#xE72B;"
+                                  FontSize="12" />
+                    </Button>
+                </Canvas>
             </TitleBar.LeftHeader>
         </TitleBar>
 
@@ -85,7 +91,6 @@
                           Height="240"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
-                          ToolTipService.ToolTip="Ctrl+V"
                           AutomationProperties.AutomationId="DropZone"
                           AutomationProperties.Name="Drop zone">
                         <Rectangle RadiusX="8"
@@ -271,8 +276,8 @@
             <ScrollViewer.RenderTransform>
                 <ScaleTransform />
             </ScrollViewer.RenderTransform>
-            <StackPanel Padding="16,24,16,16"
-                        Spacing="16">
+            <StackPanel Padding="16,16,16,16"
+                        Spacing="12">
                 <TextBlock x:Name="SettingsHeader"
                            Text="Settings"
                            Style="{StaticResource SubtitleTextBlockStyle}"

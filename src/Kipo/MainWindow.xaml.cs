@@ -49,6 +49,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;   // window buttons match the 48px title bar
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "kipo.ico"));   // taskbar and Alt+Tab
 
         // Window buttons follow the app's theme, not only Windows' default
         if (Content is FrameworkElement page)
@@ -463,7 +464,7 @@ public sealed partial class MainWindow : Window
         AddViewAnimation(story, outgoing, 1, 0, 1, show ? 1.04 : 0.94);
 
         // Back arrow slides open and fades in, or the reverse
-        AddAnimation(story, BackButton, nameof(FrameworkElement.Width), show ? 0 : BackButtonSize, show ? BackButtonSize : 0, dependent: true);
+        AddAnimation(story, BackSlot, nameof(FrameworkElement.Width), show ? 0 : BackButtonSize, show ? BackButtonSize : 0, dependent: true);
         AddAnimation(story, BackButton, nameof(UIElement.Opacity), show ? 0 : 1, show ? 1 : 0);
 
         story.Completed += (_, _) =>
