@@ -1,0 +1,12 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <InstallerPlatform Condition="'$(InstallerPlatform)' == ''">x64</InstallerPlatform>
+    <OutputName>Kipo-$(InstallerPlatform)</OutputName>
+    <DefineConstants>PublishDir=$(PublishDir)</DefineConstants>
+    <!-- WiX warnings aren't C# analyzer warnings; keep them visible but not fatal -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- ICE03: some bundled .NET/WinAppSDK DLLs carry a language code it rejects; the files are fine.
+         ICE38/43/57: treat the Start menu as per-user; this package is per-machine, so the HKLM key path is correct. -->
+    <SuppressIces>ICE03;ICE38;ICE43;ICE57</SuppressIces>
+  </PropertyGroup>
+</Project>
