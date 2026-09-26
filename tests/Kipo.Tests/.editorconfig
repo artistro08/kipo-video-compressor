@@ -4,3 +4,6 @@ dotnet_diagnostic.CA1707.severity = none
 
 # Inline expected arrays read better in tests; allocation cost doesn't matter here
 dotnet_diagnostic.CA1861.severity = none
+
+# Tests throw COMException on purpose to simulate a busy clipboard
+dotnet_diagnostic.CA2201.severity = none
