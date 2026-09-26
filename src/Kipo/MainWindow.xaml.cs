@@ -270,6 +270,7 @@ public sealed partial class MainWindow : Window
         CustomSizeBox.Value        = _settings.CustomMb;
         CustomSizeBox.Visibility   = _settings.UseCustom ? Visibility.Visible : Visibility.Collapsed;
         CopyToClipboardToggle.IsOn = _settings.CopyToClipboard;
+        CopyToClipboardState.Text  = _settings.CopyToClipboard ? "On" : "Off";
 
         _loadingControls = false;
     }
@@ -295,8 +296,11 @@ public sealed partial class MainWindow : Window
         SaveSettings(_settings with { CustomMb = (int)Math.Round(args.NewValue) });
     }
 
-    private void OnCopyToggled(object sender, RoutedEventArgs e) =>
+    private void OnCopyToggled(object sender, RoutedEventArgs e)
+    {
+        CopyToClipboardState.Text = CopyToClipboardToggle.IsOn ? "On" : "Off";
         SaveSettings(_settings with { CopyToClipboard = CopyToClipboardToggle.IsOn });
+    }
 
     private void SaveSettings(AppSettings settings)
     {

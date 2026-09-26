@@ -1,5 +1,5 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-    <Package Name="Kipo"
+    <Package Name="Kipo Video Compressor"
              Manufacturer="Devin Green"
              Version="1.0.0"
              UpgradeCode="6F2C8A3E-4B1D-4E7A-9C55-2D8B1F0A7E43"
@@ -26,7 +26,7 @@
         <StandardDirectory Id="ProgramMenuFolder">
             <Component Id="StartMenuShortcut">
                 <Shortcut Id="KipoShortcut"
-                          Name="Kipo"
+                          Name="Kipo Video Compressor"
                           Description="Compress videos to a target size."
                           Target="[INSTALLFOLDER]Kipo.exe"
                           WorkingDirectory="INSTALLFOLDER" />

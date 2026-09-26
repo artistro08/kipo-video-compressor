@@ -457,7 +457,7 @@ public sealed class UiTests
     }
 
     private AutomationElement? TitleText() =>
-        _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Kipo")));
+        _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Kipo Video Compressor")));
 
     [STATestMethod]
     [Timeout(120_000)]
@@ -533,12 +533,33 @@ public sealed class UiTests
     public void CustomSizeBox_MatchesDropdownHeight()
     {
         Launch(new AppSettings { UseCustom = true, CustomMb = 20 });
+        Thread.Sleep(800);
 
-        var combo = ById("SizeCombo").BoundingRectangle;
-        var box   = ById("CustomSizeBox").BoundingRectangle;
+        // Accessibility reports the dropdown taller than it draws, so measure drawn pixels
+        using var shot = _window.Capture();
+        var window     = _window.BoundingRectangle;
+        var combo      = DrawnHeight(shot, window, ById("SizeCombo").BoundingRectangle);
+        var box        = DrawnHeight(shot, window, ById("CustomSizeBox").BoundingRectangle);
 
-        Assert.IsTrue(Math.Abs(combo.Height - box.Height) <= 1, $"Dropdown {combo.Height}px, custom box {box.Height}px");
-        Assert.IsTrue(Math.Abs(combo.Top - box.Top) <= 1, $"Not aligned: dropdown top {combo.Top}, box top {box.Top}");
+        // Up to 3px: the text field draws a thicker bottom underline than the dropdown border
+        Assert.IsTrue(Math.Abs(combo.Height - box.Height) <= 3, $"Dropdown draws {combo.Top}+{combo.Height}px, custom box {box.Top}+{box.Height}px");
+        Assert.IsTrue(Math.Abs(combo.Top - box.Top) <= 2, $"Not aligned: dropdown top {combo.Top}, box top {box.Top}");
+    }
+
+    // Rows where a column just inside the control's left edge differs from the footer background
+    private static (int Top, int Height) DrawnHeight(System.Drawing.Bitmap shot, System.Drawing.Rectangle window, System.Drawing.Rectangle control)
+    {
+        var x          = control.X - window.X + 6;
+        var background = shot.GetPixel(control.X - window.X - 3, control.Y - window.Y + control.Height / 2);
+        var rows       = Enumerable.Range(control.Y - window.Y - 4, control.Height + 8)
+            .Where(y =>
+            {
+                var c = shot.GetPixel(x, y);
+                return Math.Abs(c.R - background.R) + Math.Abs(c.G - background.G) + Math.Abs(c.B - background.B) > 6;
+            })
+            .ToList();
+
+        return rows.Count == 0 ? (0, 0) : (rows.Min(), rows.Max() - rows.Min() + 1);
     }
 
     [STATestMethod]
@@ -567,6 +588,51 @@ public sealed class UiTests
         var contrasting = glyphs.Count(b => light ? b < 0.45 : b > 0.6);
 
         Assert.IsTrue(contrasting >= 15, $"{theme}: only {contrasting} contrasting pixels in the close button");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void AppName_IsKipoVideoCompressor()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        Assert.AreEqual("Kipo Video Compressor", _window.Title);
+        Assert.IsNotNull(TitleText(), "Title bar doesn't say Kipo Video Compressor");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void DropZone_ExplainsCompressing()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        var zone = ById("DropZone");
+
+        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Drop, paste (Ctrl+V), or browse")), "Main line missing");
+        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Drop, paste or browse for a video to compress.")), "Compress note missing");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Settings_ClipboardSettingIsACard()
+    {
+        Launch(new AppSettings { PresetMb = 10, CopyToClipboard = true });
+
+        ById("SettingsButton").Click();
+        Thread.Sleep(800);
+
+        // Plain panels aren't visible to test tools, so check the pieces inside the settings view
+        var view   = ById("SettingsView");
+        var toggle = ById("CopyToClipboardToggle").BoundingRectangle;
+        var label  = view.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Copy result to clipboard (single file)")))
+            ?? throw new AssertFailedException("Label missing");
+        var state  = view.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("On")))
+            ?? throw new AssertFailedException("On/Off text missing");
+        var scale  = ById("BackButton").BoundingRectangle.Height / 32.0;
+
+        Assert.IsTrue(label.BoundingRectangle.Right < state.BoundingRectangle.Left, "Label should sit left of the On/Off text");
+        Assert.IsTrue(state.BoundingRectangle.Right <= toggle.Left + 4, "On/Off text should sit left of the switch");
+        Assert.IsTrue(_window.BoundingRectangle.Right - toggle.Right < 60 * scale, $"Switch should sit at the right edge ({_window.BoundingRectangle.Right - toggle.Right}px away)");
     }
 
     [STATestMethod]

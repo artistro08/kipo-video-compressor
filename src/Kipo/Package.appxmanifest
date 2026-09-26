@@ -8,7 +8,7 @@
   <Identity Name="Kipo" Publisher="CN=Kipo Dev" Version="1.0.0.0" />
 
   <Properties>
-    <DisplayName>Kipo</DisplayName>
+    <DisplayName>Kipo Video Compressor</DisplayName>
     <PublisherDisplayName>Devin Green</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -24,7 +24,7 @@
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="Kipo"
+        DisplayName="Kipo Video Compressor"
         Description="Compress videos to a target size."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

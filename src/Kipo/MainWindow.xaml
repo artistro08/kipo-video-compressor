@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:core="using:Kipo.Core"
     xmlns:local="using:Kipo"
-    Title="Kipo">
+    Title="Kipo Video Compressor">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -18,7 +18,7 @@
 
         <!-- Title Bar -->
         <TitleBar x:Name="AppTitleBar"
-                  Title="Kipo">
+                  Title="Kipo Video Compressor">
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="ms-appx:///Assets/Square44x44Logo.png" />
             </TitleBar.IconSource>
@@ -105,6 +105,12 @@
                             <TextBlock Text="Drop, paste (Ctrl+V), or browse"
                                        HorizontalAlignment="Center"
                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Drop, paste or browse for a video to compress."
+                                       HorizontalAlignment="Center"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <Button x:Name="BrowseButton"
                                     HorizontalAlignment="Center"
                                     Content="Browse"
@@ -232,12 +238,7 @@
                                    Visibility="Collapsed"
                                    AutomationProperties.AutomationId="CustomSizeBox"
                                    AutomationProperties.Name="Custom size in MB"
-                                   ValueChanged="OnCustomSizeChanged">
-                            <!-- Match the dropdown's 40px height -->
-                            <NumberBox.Resources>
-                                <x:Double x:Key="TextControlThemeMinHeight">40</x:Double>
-                            </NumberBox.Resources>
-                        </NumberBox>
+                                   ValueChanged="OnCustomSizeChanged" />
                     </StackPanel>
 
                     <!-- Settings: icon only, no background or hover -->
@@ -282,10 +283,41 @@
                            Text="Settings"
                            Style="{StaticResource SubtitleTextBlockStyle}"
                            AutomationProperties.AutomationId="SettingsHeader" />
-                <ToggleSwitch x:Name="CopyToClipboardToggle"
-                              Header="Copy result to clipboard (single file)"
-                              AutomationProperties.AutomationId="CopyToClipboardToggle"
-                              Toggled="OnCopyToggled" />
+                <!-- Clipboard Setting Card -->
+                <Grid x:Name="CopyToClipboardCard"
+                      MinHeight="68"
+                      Padding="16,8"
+                      ColumnSpacing="16"
+                      CornerRadius="{ThemeResource OverlayCornerRadius}"
+                      Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                      BorderThickness="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon Glyph="&#xE8C8;"
+                              FontSize="20"
+                              VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1"
+                               Text="Copy result to clipboard (single file)"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="CopyToClipboardState"
+                               Grid.Column="2"
+                               VerticalAlignment="Center" />
+                    <ToggleSwitch x:Name="CopyToClipboardToggle"
+                                  Grid.Column="3"
+                                  MinWidth="0"
+                                  OnContent=""
+                                  OffContent=""
+                                  VerticalAlignment="Center"
+                                  AutomationProperties.AutomationId="CopyToClipboardToggle"
+                                  AutomationProperties.Name="Copy result to clipboard (single file)"
+                                  Toggled="OnCopyToggled" />
+                </Grid>
             </StackPanel>
         </ScrollViewer>
         <!-- /Settings View -->
