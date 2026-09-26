@@ -32,8 +32,21 @@ public sealed class ClipboardInputTests
     // content can linger for a moment after Flush
     private static void SetClipboard(DataPackage package, string expectedFormat, string goneFormat)
     {
-        Clipboard.SetContent(package);
-        Clipboard.Flush();
+        for (var tries = 1; ; tries++)
+        {
+            try
+            {
+                Clipboard.SetContent(package);
+                Clipboard.Flush();
+                break;
+            }
+            catch (System.Runtime.InteropServices.COMException) when (tries < 20)
+            {
+                // Another app has the clipboard open; try again
+                Thread.Sleep(200);
+            }
+        }
+
         WaitForClipboard(expectedFormat, goneFormat);
     }
 
@@ -41,11 +54,18 @@ public sealed class ClipboardInputTests
     {
         for (var tries = 0; tries < 50; tries++)
         {
-            var view = Clipboard.GetContent();
-
-            if (view.Contains(expectedFormat) && !view.Contains(goneFormat))
+            try
             {
-                return;
+                var view = Clipboard.GetContent();
+
+                if (view.Contains(expectedFormat) && !view.Contains(goneFormat))
+                {
+                    return;
+                }
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                // Another app has the clipboard open; try again
             }
 
             Thread.Sleep(100);
@@ -115,16 +135,15 @@ public sealed class ClipboardInputTests
         Assert.AreEqual(0, Pump(ClipboardInput.ReadPathsAsync(package.GetView())).Count);
     }
 
-    // CopyFileAsync sets the clipboard after an await, so it needs the STA context like the app's UI thread
-    [STATestMethod(UseSTASynchronizationContext = true)]
-    public async Task CopyFile_PutsFileOnClipboard()
+    [STATestMethod]
+    public void CopyFile_PutsFileOnClipboard()
     {
         var path = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
 
-        await ClipboardInput.CopyFileAsync(path);
+        ClipboardInput.CopyFile(Pump(StorageFile.GetFileFromPathAsync(path).AsTask()));
         WaitForClipboard(StandardDataFormats.StorageItems, StandardDataFormats.Html);
 
-        var items = Pump(Clipboard.GetContent().GetStorageItemsAsync().AsTask());
+        var items = Pump(ClipboardInput.RetryAsync(() => Clipboard.GetContent().GetStorageItemsAsync().AsTask()));
 
         Assert.AreEqual(1, items.Count);
         Assert.AreEqual(path, items[0].Path);

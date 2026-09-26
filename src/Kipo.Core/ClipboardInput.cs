@@ -18,9 +18,10 @@ namespace Kipo.Core;
 public static class ClipboardInput
 {
     /// <summary>How many times a busy clipboard is tried before giving up.</summary>
-    public const int Attempts = 5;
+    public const int Attempts = 10;
 
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
+    // Clipboard managers like Raycast can hold the clipboard for over half a second
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(200);
 
     /// <summary>
     /// Reads candidate paths from pasted or dropped data.
@@ -54,19 +55,33 @@ public static class ClipboardInput
     /// </summary>
     /// <param name="path">File to copy.</param>
     /// <returns>A task that completes once the clipboard is set.</returns>
-    public static async Task CopyFileAsync(string path)
+    public static async Task CopyFileAsync(string path) => CopyFile(await StorageFile.GetFileFromPathAsync(path));
+
+    /// <summary>
+    /// Puts a file on the clipboard. Call on an STA thread (the UI thread).
+    /// </summary>
+    /// <param name="file">File to copy.</param>
+    /// <exception cref="COMException">When the clipboard is still busy after <see cref="Attempts"/> tries.</exception>
+    public static void CopyFile(StorageFile file)
     {
-        var file    = await StorageFile.GetFileFromPathAsync(path);
         var package = new DataPackage { RequestedOperation = DataPackageOperation.Copy };
 
         package.SetStorageItems([file]);
 
-        await RetryAsync(() =>
+        for (var attempt = 1; ; attempt++)
         {
-            Clipboard.SetContent(package);
-            Clipboard.Flush();
-            return Task.FromResult(true);
-        });
+            try
+            {
+                Clipboard.SetContent(package);
+                Clipboard.Flush();
+                return;
+            }
+            catch (COMException) when (attempt < Attempts)
+            {
+                // ponytail: blocks the UI thread up to ~2s on a busy clipboard; fine for one copy after an encode
+                Thread.Sleep(RetryDelay);
+            }
+        }
     }
 
     /// <summary>
