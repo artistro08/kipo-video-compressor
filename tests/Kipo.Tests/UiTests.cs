@@ -93,7 +93,9 @@ public sealed class UiTests
             return rows.Length == count && rows.All(r => r.FindAllDescendants().Any(t => t.Name.StartsWith(status, StringComparison.Ordinal)));
         }, timeout, TimeSpan.FromMilliseconds(250)).Result;
 
-        Assert.IsTrue(ok, $"Expected {count} rows with status '{status}', saw {Rows().Length}");
+        var seen = string.Join(" | ", Rows().SelectMany(r => r.FindAllDescendants()).Select(t => t.Name).Where(n => n.Length > 0));
+
+        Assert.IsTrue(ok, $"Expected {count} rows with status '{status}', saw {Rows().Length}: {seen}");
     }
 
     private Window OpenExplorer(string selectPath)
@@ -204,13 +206,76 @@ public sealed class UiTests
             .SelectMany(w => w.ModalWindows.Append(w))
             .FirstOrDefault(w => w.ClassName == "#32770"), Short).Result
             ?? throw new AssertFailedException("File picker didn't open");
+
         // Type like a person: Alt+N jumps to "File name", go to the folder, then pick both files by name
-        dialog.SetForeground();
-        TypeInFileNameBox(_dir);
+        TypeInFileNameBox(dialog, _dir);
         Thread.Sleep(1500);
-        TypeInFileNameBox(string.Join(" ", sources.Select(s => $"\"{Path.GetFileName(s)}\"")));
+        TypeInFileNameBox(dialog, string.Join(" ", sources.Select(s => $"\"{Path.GetFileName(s)}\"")));
 
         WaitForRows(2, "Already under target", Short);
+    }
+
+    [STATestMethod]
+    [Timeout(600_000)]
+    public void CustomSize_TypedWithoutEnter_UsedForNextDrop()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Small);
+        Launch(new AppSettings { UseCustom = true, CustomMb = 20 });
+
+        var explorer = OpenExplorer(source);
+
+        try
+        {
+            var file = Retry.WhileNull(() => explorer.FindFirstDescendant(cf => cf.ByName(Path.GetFileName(source)).And(cf.ByControlType(ControlType.ListItem))), Short).Result
+                ?? throw new AssertFailedException("File not visible in Explorer");
+
+            // Type 1 MB but don't press Enter or leave the box, then drop straight away
+            var input = ById("CustomSizeBox").FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit))
+                ?? throw new AssertFailedException("Custom size input not found");
+
+            // Explorer can grab focus late after opening; retry until the "1" lands
+            var typed = Retry.WhileFalse(() =>
+            {
+                _window.SetForeground();
+                input.Click();
+                Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_A);
+                Keyboard.Type("1");
+                Thread.Sleep(200);
+                return input.AsTextBox().Text == "1";
+            }, Short, TimeSpan.FromMilliseconds(500)).Result;
+
+            Assert.IsTrue(typed, "Typing didn't reach the custom size box");
+
+            SlowDrag(file.GetClickablePoint(), ById("DropZone").GetClickablePoint());
+
+            // 1.2 MB source: 20 MB would say "Already under target"; 1 MB compresses
+            WaitForRows(1, "Done", TimeSpan.FromSeconds(60));
+        }
+        finally
+        {
+            explorer.Close();
+        }
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Browse_Cancel_ShowsNoError()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        ById("BrowseButton").Click();
+
+        var dialog = Retry.WhileNull(() => _app!.GetAllTopLevelWindows(_automation!)
+            .SelectMany(w => w.ModalWindows.Append(w))
+            .FirstOrDefault(w => w.ClassName == "#32770"), Short).Result
+            ?? throw new AssertFailedException("File picker didn't open");
+
+        dialog.SetForeground();
+        Keyboard.Type(VirtualKeyShort.ESCAPE);
+        Thread.Sleep(2000);
+
+        Assert.IsNull(_window.FindFirstDescendant(cf => cf.ByName("Couldn't open the file picker.")), "Error shown after cancel");
+        Assert.AreEqual(0, Rows().Length);
     }
 
     [STATestMethod]
@@ -253,12 +318,25 @@ public sealed class UiTests
         Assert.IsFalse(ClipboardHasFile(), "Clipboard changed with setting off");
     }
 
-    private static void TypeInFileNameBox(string text)
+    // Retries until the text really sits in the dialog's "File name" box, then presses Enter
+    private static void TypeInFileNameBox(Window dialog, string text)
     {
-        Keyboard.TypeSimultaneously(VirtualKeyShort.ALT, VirtualKeyShort.KEY_N);
-        Thread.Sleep(200);
-        Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_A);
-        Keyboard.Type(text);
+        var landed = Retry.WhileFalse(() =>
+        {
+            dialog.SetForeground();
+            Keyboard.TypeSimultaneously(VirtualKeyShort.ALT, VirtualKeyShort.KEY_N);
+            Thread.Sleep(200);
+            Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_A);
+            Keyboard.Type(text);
+            Thread.Sleep(200);
+
+            var box = dialog.FindFirstDescendant(cf => cf.ByAutomationId("1148"));
+            var edit = box?.ControlType == ControlType.Edit ? box : box?.FindFirstDescendant(cf => cf.ByControlType(ControlType.Edit));
+
+            return edit?.AsTextBox().Text == text;
+        }, Short, TimeSpan.FromMilliseconds(500)).Result;
+
+        Assert.IsTrue(landed, $"Couldn't type into the file picker: {text}");
         Keyboard.Type(VirtualKeyShort.ENTER);
     }
 

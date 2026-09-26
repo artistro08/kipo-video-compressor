@@ -24,6 +24,7 @@ public sealed partial class MainWindow : Window
     private readonly CompressQueue _queue;
     private AppSettings _settings;
     private bool _loadingControls;
+    private bool _dialogOpen;
 
     public MainWindow()
     {
@@ -39,28 +40,45 @@ public sealed partial class MainWindow : Window
         _queue.BatchCompleted += OnBatchCompleted;
         QueueList.ItemsSource  = _queue.Items;
         Root.Loaded           += (_, _) => ResizeForDpi();
-
         LoadControls();
     }
 
     /// <summary>Shows a simple error dialog.</summary>
+    /// <remarks>
+    /// WinUI allows one dialog at a time, and a failed ShowAsync would land back in the
+    /// app's crash handler, which calls this again. So a second error while a dialog is
+    /// open is only logged, and ShowAsync failures never escape.
+    /// </remarks>
     /// <param name="message">Plain-language message.</param>
     public async void ShowError(string message)
     {
-        if (Content.XamlRoot is null)
+        if (_dialogOpen || Content.XamlRoot is null)
         {
             return;
         }
 
-        var dialog = new ContentDialog
-        {
-            Title           = "Kipo",
-            Content         = message,
-            CloseButtonText = "OK",
-            XamlRoot        = Content.XamlRoot,
-        };
+        _dialogOpen = true;
 
-        await dialog.ShowAsync();
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                Title           = "Kipo",
+                Content         = message,
+                CloseButtonText = "OK",
+                XamlRoot        = Content.XamlRoot,
+            };
+
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex) when (ex.HResult < 0)
+        {
+            Log.Error("Couldn't show error dialog", ex);
+        }
+        finally
+        {
+            _dialogOpen = false;
+        }
     }
 
     // =========================================================================
