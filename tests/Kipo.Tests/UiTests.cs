@@ -704,7 +704,20 @@ public sealed class UiTests
         WaitForRows(1, "Already under target", Short);
 
         Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))), "No Open file button");
-        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))), "No Open in folder button");
+
+        var folder = Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder")))
+            ?? throw new AssertFailedException("No Open in folder button");
+
+        // No compressed file was made, so it opens the original's folder
+        SettledHeight();
+        folder.Click();
+
+        var explorer = Retry.WhileNull(() => _automation!.GetDesktop()
+            .FindAllChildren(cf => cf.ByClassName("CabinetWClass"))
+            .FirstOrDefault(w => w.Name.Contains(Path.GetFileName(_dir), StringComparison.OrdinalIgnoreCase)), Short).Result;
+
+        Assert.IsNotNull(explorer, "Open in folder did nothing for an under-target file");
+        explorer.AsWindow().Close();
     }
 
     [STATestMethod]

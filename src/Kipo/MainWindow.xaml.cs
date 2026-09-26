@@ -233,10 +233,10 @@ public sealed partial class MainWindow : Window
 
     private void OnOpenInFolderClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenInFolder, "Couldn't open the folder.");
 
-    // Starts the row's action for its compressed file; failures show a message instead of crashing
+    // Starts the row's action for its result (compressed file, or the original when under target); failures show a message
     private void RunFileAction(object sender, Func<string, System.Diagnostics.ProcessStartInfo> action, string failure)
     {
-        if ((sender as FrameworkElement)?.DataContext is not QueueItem { OutputPath: { } path })
+        if ((sender as FrameworkElement)?.DataContext is not QueueItem { ResultPath: { } path })
         {
             return;
         }
