@@ -18,6 +18,14 @@ public partial class App : Application
     {
         InitializeComponent();
 
+        // Theme override for testing light and dark without changing the Windows theme
+        RequestedTheme = Environment.GetEnvironmentVariable("KIPO_THEME") switch
+        {
+            "Light" => ApplicationTheme.Light,
+            "Dark"  => ApplicationTheme.Dark,
+            _       => RequestedTheme,
+        };
+
         // Crash Handling
         UnhandledException                         += OnUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error("Unhandled exception", e.ExceptionObject as Exception);

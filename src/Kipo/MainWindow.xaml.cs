@@ -2,6 +2,7 @@ using Kipo.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI.Windowing;
 using Windows.Graphics;
@@ -20,9 +21,11 @@ public sealed partial class MainWindow : Window
 {
     private const int    WindowWidth        = 420;
     private const double DropZoneWidthShare = 0.85;
+    private const double BackButtonSize     = 32;
 
     private static readonly TimeSpan CopiedAlertDuration = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan HeightAnimation     = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan ViewAnimation       = TimeSpan.FromMilliseconds(300);
 
     private readonly SettingsStore _settingsStore = new(KipoPaths.SettingsFile);
     private readonly CompressQueue _queue;
@@ -36,6 +39,7 @@ public sealed partial class MainWindow : Window
     private int _heightFrom;
     private int _heightTo;
     private int _minOuterHeight;
+    private Storyboard? _viewStory;
 
     public MainWindow()
     {
@@ -44,6 +48,14 @@ public sealed partial class MainWindow : Window
         // Title Bar
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;   // window buttons match the 48px title bar
+
+        // Window buttons follow the app's theme, not only Windows' default
+        if (Content is FrameworkElement page)
+        {
+            page.ActualThemeChanged += (_, _) => SyncWindowButtonTheme(page);
+            page.Loaded             += (_, _) => SyncWindowButtonTheme(page);
+        }
 
         _settings = _settingsStore.Load();
         _queue    = new CompressQueue((item, progress, token) => Compressor.CompressAsync(item.Path, item.TargetBytes, progress, token));
@@ -426,25 +438,74 @@ public sealed partial class MainWindow : Window
 
     private void OnSettingsClick(object sender, RoutedEventArgs e) => ShowSettings(true);
 
-    private void OnBackRequested(TitleBar sender, object args) => ShowSettings(false);
+    private void OnBackClick(object sender, RoutedEventArgs e) => ShowSettings(false);
 
-    // Settings replace the main view; the title bar back arrow returns
+    // Settings replace the main view with a drill-in; the title bar back arrow drills out.
+    // Drill in: settings grow from 94% while the main view grows to 104% and fades. Drill out: the reverse.
     private void ShowSettings(bool show)
     {
-        SettingsView.Visibility         = show ? Visibility.Visible : Visibility.Collapsed;
-        Root.Visibility                 = show ? Visibility.Collapsed : Visibility.Visible;
-        Footer.Visibility               = show ? Visibility.Collapsed : Visibility.Visible;
-        AppTitleBar.IsBackButtonVisible = show;
+        FrameworkElement incoming = show ? SettingsView : MainView;
+        FrameworkElement outgoing = show ? MainView : SettingsView;
+
+        _viewStory?.Stop();
 
         if (show)
         {
-            CopiedBar.IsOpen = false;
+            CopiedBar.IsOpen      = false;
+            BackButton.Visibility = Visibility.Visible;
         }
-        else
+
+        incoming.Visibility = Visibility.Visible;
+
+        var story = new Storyboard();
+
+        AddViewAnimation(story, incoming, 0, 1, show ? 0.94 : 1.04, 1);
+        AddViewAnimation(story, outgoing, 1, 0, 1, show ? 1.04 : 0.94);
+
+        // Back arrow slides open and fades in, or the reverse
+        AddAnimation(story, BackButton, nameof(FrameworkElement.Width), show ? 0 : BackButtonSize, show ? BackButtonSize : 0, dependent: true);
+        AddAnimation(story, BackButton, nameof(UIElement.Opacity), show ? 0 : 1, show ? 1 : 0);
+
+        story.Completed += (_, _) =>
         {
-            FitToContentLater();
-        }
+            outgoing.Visibility = Visibility.Collapsed;
+
+            if (!show)
+            {
+                BackButton.Visibility = Visibility.Collapsed;
+                FitToContentLater();
+            }
+        };
+
+        _viewStory = story;
+        story.Begin();
     }
+
+    private static void AddViewAnimation(Storyboard story, UIElement view, double fromOpacity, double toOpacity, double fromScale, double toScale)
+    {
+        AddAnimation(story, view, nameof(UIElement.Opacity), fromOpacity, toOpacity);
+        AddAnimation(story, view, "(UIElement.RenderTransform).(ScaleTransform.ScaleX)", fromScale, toScale);
+        AddAnimation(story, view, "(UIElement.RenderTransform).(ScaleTransform.ScaleY)", fromScale, toScale);
+    }
+
+    private static void AddAnimation(Storyboard story, DependencyObject target, string property, double from, double to, bool dependent = false)
+    {
+        var animation = new DoubleAnimation
+        {
+            From                     = from,
+            To                       = to,
+            Duration                 = ViewAnimation,
+            EnableDependentAnimation = dependent,
+            EasingFunction           = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 6 },
+        };
+
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, property);
+        story.Children.Add(animation);
+    }
+
+    private void SyncWindowButtonTheme(FrameworkElement page) =>
+        AppWindow.TitleBar.PreferredTheme = page.ActualTheme == ElementTheme.Light ? TitleBarTheme.Light : TitleBarTheme.Dark;
 
     // First show: set the width, then snap the height to the content without animating
     private void OnFirstLoaded()

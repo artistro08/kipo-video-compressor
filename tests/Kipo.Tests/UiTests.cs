@@ -61,7 +61,7 @@ public sealed class UiTests
         Directory.Delete(_dataDir, true);
     }
 
-    private void Launch(AppSettings settings)
+    private void Launch(AppSettings settings, string? theme = null)
     {
         if (!File.Exists(ExePath))
         {
@@ -72,6 +72,11 @@ public sealed class UiTests
 
         var start = new ProcessStartInfo(ExePath) { UseShellExecute = false };
         start.Environment["KIPO_DATA_DIR"] = _dataDir;
+
+        if (theme is not null)
+        {
+            start.Environment["KIPO_THEME"] = theme;
+        }
 
         _automation = new UIA3Automation();
         _app        = Application.Launch(start);
@@ -397,6 +402,146 @@ public sealed class UiTests
         }
 
         Assert.IsTrue(heights.Count >= 4, $"Height jumped instead of animating: {string.Join(", ", heights)}");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void BackButton_IsSquare_AndAnimatesIn()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        ById("SettingsButton").Click();
+
+        // Sample the arrow while it appears
+        var widths = new HashSet<int>();
+        var clock  = Stopwatch.StartNew();
+
+        while (clock.ElapsedMilliseconds < 800)
+        {
+            var arrow = _window.FindFirstDescendant(cf => cf.ByAutomationId("BackButton"));
+
+            if (arrow is not null)
+            {
+                widths.Add(arrow.BoundingRectangle.Width);
+            }
+
+            Thread.Sleep(10);
+        }
+
+        var back = ById("BackButton").BoundingRectangle;
+
+        Assert.IsTrue(widths.Count >= 3, $"Back arrow didn't animate: {string.Join(", ", widths)}");
+        Assert.IsTrue(Math.Abs(back.Width - back.Height) <= 1, $"Back arrow not square: {back.Width}x{back.Height}");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Settings_HeaderHasSpaceBelowTitleBar()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        ById("SettingsButton").Click();
+        Thread.Sleep(800);
+
+        var header = ById("SettingsHeader").BoundingRectangle;
+        var back   = ById("BackButton").BoundingRectangle;
+        var scale  = back.Height / 32.0;
+
+        Assert.IsTrue(header.Top - back.Bottom >= 16 * scale, $"Header only {header.Top - back.Bottom}px below the title bar");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void Settings_DrillsInAndOut()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+
+        ById("SettingsButton").Click();
+        var inSizes = SampleWidths("SettingsView");
+
+        // Click back directly (arrow has settled), then watch the settings view shrink away
+        Thread.Sleep(1000);
+        ById("BackButton").Click();
+        var outSizes = SampleWidths("SettingsView");
+
+        Assert.IsTrue(inSizes.Count >= 3, $"No drill-in: {string.Join(", ", inSizes)}");
+        Assert.IsTrue(outSizes.Count >= 3, $"No drill-out: {string.Join(", ", outSizes)}");
+    }
+
+    // Collects the element's width every 10ms for half a second; a scale animation shows as several widths
+    private HashSet<int> SampleWidths(string id)
+    {
+        var widths = new HashSet<int>();
+        var clock  = Stopwatch.StartNew();
+
+        while (clock.ElapsedMilliseconds < 500)
+        {
+            if (_window.FindFirstDescendant(cf => cf.ByAutomationId(id)) is { } element)
+            {
+                widths.Add(element.BoundingRectangle.Width);
+            }
+
+            Thread.Sleep(10);
+        }
+
+        return widths;
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void CaptionButtons_FillTitleBarHeight()
+    {
+        Launch(new AppSettings { PresetMb = 10 });
+        Thread.Sleep(1000);
+
+        // Drop zone is 240px tall, which gives the display scale
+        var scale = ById("DropZone").BoundingRectangle.Height / 240.0;
+        var close = Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close"))), Short).Result
+            ?? throw new AssertFailedException("Close button not found");
+
+        // The title bar is 48px tall; the window buttons should match
+        Assert.IsTrue(close.BoundingRectangle.Height >= 46 * scale, $"Close button {close.BoundingRectangle.Height}px, want {48 * scale:0}px");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void CustomSizeBox_MatchesDropdownHeight()
+    {
+        Launch(new AppSettings { UseCustom = true, CustomMb = 20 });
+
+        var combo = ById("SizeCombo").BoundingRectangle;
+        var box   = ById("CustomSizeBox").BoundingRectangle;
+
+        Assert.IsTrue(Math.Abs(combo.Height - box.Height) <= 1, $"Dropdown {combo.Height}px, custom box {box.Height}px");
+        Assert.IsTrue(Math.Abs(combo.Top - box.Top) <= 1, $"Not aligned: dropdown top {combo.Top}, box top {box.Top}");
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    [DataRow("Light", true)]
+    [DataRow("Dark", false)]
+    public void Theme_FooterAndTextFollowTheme(string theme, bool light)
+    {
+        Launch(new AppSettings { PresetMb = 10 }, theme);
+        Thread.Sleep(1000);
+
+        using var shot  = _window.Capture();
+        var footer      = ById("SizeCombo").BoundingRectangle;
+        var window      = _window.BoundingRectangle;
+        var background  = shot.GetPixel(footer.Right - window.X + 20, footer.Top - window.Y + footer.Height / 2).GetBrightness();
+
+        Assert.IsTrue(light ? background > 0.75 : background < 0.3, $"{theme}: footer brightness {background:0.00}");
+
+        // Window buttons follow the app theme: the X glyph must contrast with the title bar
+        var close  = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Close")))!.BoundingRectangle;
+        // Middle half of the button only; its outer corner shows the desktop through the rounded window edge
+        var glyphs = Enumerable.Range(close.Width / 4, close.Width / 2)
+            .SelectMany(x => Enumerable.Range(close.Height / 4, close.Height / 2).Select(y => shot.GetPixel(close.X - window.X + x, close.Y - window.Y + y).GetBrightness()))
+            .ToList();
+
+        var contrasting = glyphs.Count(b => light ? b < 0.45 : b > 0.6);
+
+        Assert.IsTrue(contrasting >= 15, $"{theme}: only {contrasting} contrasting pixels in the close button");
     }
 
     [STATestMethod]
