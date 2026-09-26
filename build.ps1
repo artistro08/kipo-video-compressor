@@ -43,6 +43,14 @@ if (-not $cert) {
 New-Item -ItemType Directory -Force (Split-Path $certFile) | Out-Null
 Export-Certificate -Cert $cert -FilePath $certFile | Out-Null
 
+# Windows SDK packaging tools (makeappx, signtool)
+$sdkBin   = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Directory |
+    Where-Object { Test-Path "$($_.FullName)\x64\makeappx.exe" } |
+    Sort-Object Name -Descending |
+    Select-Object -First 1
+$makeAppx = "$($sdkBin.FullName)\x64\makeappx.exe"
+$signTool = "$($sdkBin.FullName)\x64\signtool.exe"
+
 # Native AOT needs vswhere.exe on PATH (Visual Studio's vcvarsall calls it by name)
 $env:PATH = "$env:PATH;${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
@@ -67,6 +75,19 @@ foreach ($platform in $Platforms) {
     Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
     dotnet publish "$root\src\Kipo\Kipo.csproj" -c $Configuration -r $rid -p:Platform=$msbuildPlatform -o $publishDir
     if ($LASTEXITCODE) { throw "Unpackaged publish failed for $platform" }
+
+    # Identity (sparse) package for the MSI's Windows 11 right-click menu, signed with the dev certificate
+    $sparseStage = Join-Path $root "artifacts\sparse\$rid"
+    Remove-Item $sparseStage -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force "$sparseStage\Assets" | Out-Null
+    Copy-Item "$root\src\Kipo.Installer\Sparse\AppxManifest.xml" $sparseStage
+    Copy-Item "$root\src\Kipo\Assets\*.png" "$sparseStage\Assets"
+
+    & $makeAppx pack /d $sparseStage /p "$publishDir\Kipo.Sparse.msix" /nv /o | Out-Null
+    if ($LASTEXITCODE) { throw "Sparse package build failed for $platform" }
+
+    & $signTool sign /fd SHA256 /sha1 $cert.Thumbprint "$publishDir\Kipo.Sparse.msix" | Out-Null
+    if ($LASTEXITCODE) { throw "Sparse package signing failed for $platform" }
 
     # MSI (full rebuild: WiX doesn't notice when only the published files changed)
     dotnet build "$root\src\Kipo.Installer\Kipo.Installer.wixproj" -c $Configuration --no-incremental `

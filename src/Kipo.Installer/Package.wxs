@@ -22,6 +22,117 @@
             </Directory>
         </StandardDirectory>
 
+        <!-- Classic right-click menu ("Show more options"): Compress with Kipo > sizes.
+             Windows 11's main menu comes from the identity package Kipo registers on first launch. -->
+        <StandardDirectory Id="ProgramFiles6432Folder">
+            <Component Id="ClassicRightClickMenu"
+                       Directory="INSTALLFOLDER">
+                <RegistryValue Root="HKLM"
+                               Key="Software\Kipo"
+                               Name="ClassicRightClickMenu"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes" />
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\SystemFileAssociations\.mp4\shell\Kipo">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Compress with Kipo" />
+                    <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot;,0" />
+                    <RegistryValue Name="ExtendedSubCommandsKey" Type="string" Value="Kipo.CompressMenu" />
+                    <RegistryValue Name="MultiSelectModel" Type="string" Value="Document" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\SystemFileAssociations\.mov\shell\Kipo">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Compress with Kipo" />
+                    <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot;,0" />
+                    <RegistryValue Name="ExtendedSubCommandsKey" Type="string" Value="Kipo.CompressMenu" />
+                    <RegistryValue Name="MultiSelectModel" Type="string" Value="Document" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\SystemFileAssociations\.mkv\shell\Kipo">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Compress with Kipo" />
+                    <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot;,0" />
+                    <RegistryValue Name="ExtendedSubCommandsKey" Type="string" Value="Kipo.CompressMenu" />
+                    <RegistryValue Name="MultiSelectModel" Type="string" Value="Document" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\SystemFileAssociations\.avi\shell\Kipo">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Compress with Kipo" />
+                    <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot;,0" />
+                    <RegistryValue Name="ExtendedSubCommandsKey" Type="string" Value="Kipo.CompressMenu" />
+                    <RegistryValue Name="MultiSelectModel" Type="string" Value="Document" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\SystemFileAssociations\.wmv\shell\Kipo">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Compress with Kipo" />
+                    <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot;,0" />
+                    <RegistryValue Name="ExtendedSubCommandsKey" Type="string" Value="Kipo.CompressMenu" />
+                    <RegistryValue Name="MultiSelectModel" Type="string" Value="Document" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\SystemFileAssociations\.m4v\shell\Kipo">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Compress with Kipo" />
+                    <RegistryValue Name="Icon" Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot;,0" />
+                    <RegistryValue Name="ExtendedSubCommandsKey" Type="string" Value="Kipo.CompressMenu" />
+                    <RegistryValue Name="MultiSelectModel" Type="string" Value="Document" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\Kipo.CompressMenu\shell\01_8">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="8 MB" />
+                    <RegistryKey Key="command">
+                        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot; --compress 8 &quot;%1&quot;" />
+                    </RegistryKey>
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\Kipo.CompressMenu\shell\02_10">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="10 MB" />
+                    <RegistryKey Key="command">
+                        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot; --compress 10 &quot;%1&quot;" />
+                    </RegistryKey>
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\Kipo.CompressMenu\shell\03_25">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="25 MB" />
+                    <RegistryKey Key="command">
+                        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot; --compress 25 &quot;%1&quot;" />
+                    </RegistryKey>
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\Kipo.CompressMenu\shell\04_50">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="50 MB" />
+                    <RegistryKey Key="command">
+                        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot; --compress 50 &quot;%1&quot;" />
+                    </RegistryKey>
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\Kipo.CompressMenu\shell\05_100">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="100 MB" />
+                    <RegistryKey Key="command">
+                        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot; --compress 100 &quot;%1&quot;" />
+                    </RegistryKey>
+                </RegistryKey>
+                <RegistryKey Root="HKLM"
+                             Key="Software\Classes\Kipo.CompressMenu\shell\06_custom">
+                    <RegistryValue Name="MUIVerb" Type="string" Value="Custom…" />
+                    <RegistryValue Name="CommandFlags" Type="integer" Value="32" />
+                    <RegistryKey Key="command">
+                        <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]Kipo.exe&quot; --compress custom &quot;%1&quot;" />
+                    </RegistryKey>
+                </RegistryKey>
+            </Component>
+        </StandardDirectory>
+
+        <!-- Uninstall: remove this user's identity package and overrides while Kipo.exe still exists -->
+        <CustomAction Id="UnregisterShell"
+                      Directory="INSTALLFOLDER"
+                      ExeCommand="&quot;[INSTALLFOLDER]Kipo.exe&quot; --unregister-shell"
+                      Execute="immediate"
+                      Return="ignore" />
+        <InstallExecuteSequence>
+            <Custom Action="UnregisterShell"
+                    Before="RemoveFiles"
+                    Condition="REMOVE=&quot;ALL&quot;" />
+        </InstallExecuteSequence>
+
         <!-- Start Menu Shortcut -->
         <StandardDirectory Id="ProgramMenuFolder">
             <Component Id="StartMenuShortcut">

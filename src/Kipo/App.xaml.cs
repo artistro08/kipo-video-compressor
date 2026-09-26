@@ -91,6 +91,7 @@ public partial class App : Application
         }
 
         Route(request);
+        ShellRegistration.EnsureInBackground();
 
         // Launches handed over while this copy was still starting; after this, hand-offs route directly
         lock (EarlyGate)

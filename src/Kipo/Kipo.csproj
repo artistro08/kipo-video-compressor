@@ -23,6 +23,8 @@
   <!-- Unpackaged: used for dev, UI tests and the MSI. Ships .NET and WinAppSDK inside. -->
   <PropertyGroup Condition="'$(KipoPackaging)' == 'Unpackaged'">
     <WindowsPackageType>None</WindowsPackageType>
+    <!-- Links the exe to the sparse identity package the MSI registers for the right-click menu -->
+    <ApplicationManifest>app.unpackaged.manifest</ApplicationManifest>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
   </PropertyGroup>

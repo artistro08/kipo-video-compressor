@@ -18,9 +18,9 @@ public sealed partial class UiTests
     [Timeout(300_000)]
     public void Explorer_RightClick_CompressWithKipo()
     {
-        if (!new PackageManager().FindPackagesForUser(string.Empty).Any(p => p.Id.Name == "Kipo"))
+        if (!new PackageManager().FindPackagesForUser(string.Empty).Any(p => p.Id.Name is "Kipo" or "KipoSparse"))
         {
-            Assert.Inconclusive("Install the Kipo MSIX first (build.ps1, then Add-AppxPackage).");
+            Assert.Inconclusive("Install the Kipo MSIX, or launch the MSI build once so it registers its identity package.");
         }
 
         var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
