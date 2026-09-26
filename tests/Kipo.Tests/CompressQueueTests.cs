@@ -142,14 +142,18 @@ public sealed class CompressQueueTests
             progress.Report(42);
             return Task.FromResult(new CompressResult(ItemStatus.Done));
         });
-        var seen = new TaskCompletionSource<double>();
-
         queue.AddPaths([P("a.mp4")], 100);
-        queue.Items[0].PropertyChanged += (s, e) => { if (e.PropertyName == nameof(QueueItem.Progress) && ((QueueItem)s!).Progress > 0) seen.TrySetResult(((QueueItem)s!).Progress); };
         await queue.WhenIdle();
 
-        // Progress<T> posts on the thread pool, so the value can arrive after the run ends
-        Assert.AreEqual(42, await seen.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        // Progress<T> posts on the thread pool, so the value can land before or after the run ends; poll it
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        while (queue.Items[0].Progress != 42 && clock.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.AreEqual(42, queue.Items[0].Progress);
     }
 
     [TestMethod]
