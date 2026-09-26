@@ -74,9 +74,7 @@
                   SizeChanged="OnRootSizeChanged">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid.KeyboardAccelerators>
@@ -122,118 +120,9 @@
                 </Grid>
                 <!-- /Drop Section -->
 
-                <!-- Separator -->
-                <Rectangle x:Name="QueueSeparator"
-                           Grid.Row="1"
-                           Height="1"
-                           Margin="0,0,0,8"
-                           Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
-                           Visibility="Collapsed" />
-
-                <!-- Queue -->
-                <ListView x:Name="QueueList"
-                          Grid.Row="2"
-                          MaxHeight="336"
-                          SelectionMode="None"
-                          Visibility="Collapsed"
-                          AutomationProperties.AutomationId="QueueList"
-                          AutomationProperties.Name="Queue">
-                    <!-- Fixed 56px rows so six rows = 336px, the height cap before scrolling -->
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem"
-                               BasedOn="{StaticResource DefaultListViewItemStyle}">
-                            <Setter Property="Height"
-                                    Value="56" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="core:QueueItem">
-                            <Grid ColumnSpacing="12"
-                                  Padding="0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <!-- Row Icon: video, spinner while compressing, checkmark when done -->
-                                <Grid Width="18"
-                                      VerticalAlignment="Center">
-                                    <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                               FontSize="16"
-                                               Text="{x:Bind local:RowIcon.Glyph(IsDone), Mode=OneWay}"
-                                               Foreground="{x:Bind local:RowIcon.Foreground(IsDone), Mode=OneWay}"
-                                               Visibility="{x:Bind local:RowIcon.Hidden(IsCompressing), Mode=OneWay}"
-                                               AutomationProperties.AutomationId="RowIcon"
-                                               AutomationProperties.Name="{x:Bind local:RowIcon.Name(IsDone), Mode=OneWay}" />
-                                    <ProgressRing Width="16"
-                                                  Height="16"
-                                                  IsActive="{x:Bind IsCompressing, Mode=OneWay}"
-                                                  Visibility="{x:Bind IsCompressing, Mode=OneWay}"
-                                                  AutomationProperties.AutomationId="RowSpinner"
-                                                  AutomationProperties.Name="Compressing" />
-                                </Grid>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{x:Bind FileName}"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{x:Bind StatusText, Mode=OneWay}"
-                                               Style="{StaticResource CaptionTextBlockStyle}"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                </StackPanel>
-                                <!-- Finished-file actions -->
-                                <StackPanel Grid.Column="2"
-                                            Orientation="Horizontal"
-                                            Spacing="6"
-                                            VerticalAlignment="Center"
-                                            Visibility="{x:Bind HasOutput, Mode=OneWay}">
-                                    <Button Padding="10,4"
-                                            AutomationProperties.Name="Open file"
-                                            Click="OnOpenFileClick">
-                                        <StackPanel Orientation="Horizontal"
-                                                    Spacing="6">
-                                            <FontIcon Glyph="&#xE8E5;"
-                                                      FontSize="12" />
-                                            <TextBlock Text="Open file"
-                                                       FontSize="12" />
-                                        </StackPanel>
-                                    </Button>
-                                    <Button Padding="10,4"
-                                            AutomationProperties.Name="Open in folder"
-                                            Click="OnOpenInFolderClick">
-                                        <StackPanel Orientation="Horizontal"
-                                                    Spacing="6">
-                                            <FontIcon Glyph="&#xE838;"
-                                                      FontSize="12" />
-                                            <TextBlock Text="Open in folder"
-                                                       FontSize="12" />
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                                <Button Grid.Column="3"
-                                        VerticalAlignment="Center"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Visibility="{x:Bind CanCancel, Mode=OneWay}"
-                                        AutomationProperties.Name="Cancel"
-                                        ToolTipService.ToolTip="Cancel"
-                                        Click="OnCancelItemClick">
-                                    <FontIcon Glyph="&#xE711;"
-                                              FontSize="12" />
-                                </Button>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                <!-- /Queue -->
-
-                <!-- Cancel All -->
-                <HyperlinkButton x:Name="CancelAllLink"
-                                 Grid.Row="3"
-                                 HorizontalAlignment="Right"
-                                 Content="Cancel all"
-                                 Visibility="Collapsed"
-                                 AutomationProperties.AutomationId="CancelAllLink"
-                                 Click="OnCancelAllClick" />
+                <!-- File List -->
+                <local:QueueView x:Name="QueueView"
+                                 Grid.Row="1" />
             </Grid>
             <!-- /Content -->
 

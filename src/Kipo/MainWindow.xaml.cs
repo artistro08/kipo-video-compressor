@@ -24,7 +24,6 @@ public sealed partial class MainWindow : Window
     private const double BackButtonSize     = 32;
 
     private static readonly TimeSpan CopiedAlertDuration = TimeSpan.FromSeconds(3);
-    private static readonly TimeSpan HeightAnimation     = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan ViewAnimation       = TimeSpan.FromMilliseconds(300);
 
     private readonly SettingsStore _settingsStore = new(KipoPaths.SettingsFile);
@@ -33,12 +32,7 @@ public sealed partial class MainWindow : Window
     private bool _loadingControls;
     private bool _dialogOpen;
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _copiedTimer;
-    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _heightTimer;
-    private System.Diagnostics.Stopwatch? _heightClock;
-    private Action? _heightDone;
-    private int _heightFrom;
-    private int _heightTo;
-    private int _minOuterHeight;
+    private readonly WindowFitter _fitter;
     private Storyboard? _viewStory;
 
     public MainWindow()
@@ -61,13 +55,14 @@ public sealed partial class MainWindow : Window
         _settings = _settingsStore.Load();
         _queue    = new CompressQueue((item, progress, token) => Compressor.CompressAsync(item.Path, item.TargetBytes, progress, token));
 
-        _queue.BatchCompleted += OnBatchCompleted;
-        QueueList.ItemsSource  = _queue.Items;
-        Root.Loaded           += (_, _) => OnFirstLoaded();
-        CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => FitToContentLater());
+        _fitter = new WindowFitter(this, WindowWidth, () => SettingsView.Visibility == Visibility.Visible);
 
-        _queue.Items.CollectionChanged += (_, _) => UpdateQueueVisibility();
-        _queue.PropertyChanged         += (_, _) => UpdateCancelAll();
+        _queue.BatchCompleted   += OnBatchCompleted;
+        Root.Loaded             += (_, _) => _fitter.FitFirst();
+        QueueView.LayoutChanged += (_, _) => _fitter.FitLater();
+        QueueView.Error         += (_, message) => ShowError(message);
+        QueueView.Attach(_queue);
+        CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => _fitter.FitLater());
 
         LoadControls();
     }
@@ -210,62 +205,6 @@ public sealed partial class MainWindow : Window
     // QUEUE
     // =========================================================================
 
-    private void OnCancelItemClick(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is QueueItem item)
-        {
-            item.Cancel();
-        }
-    }
-
-    // Queue and separator only show once there are files; the window then grows to fit
-    private void UpdateQueueVisibility()
-    {
-        var hasItems = _queue.Items.Count > 0;
-
-        QueueList.Visibility      = hasItems ? Visibility.Visible : Visibility.Collapsed;
-        QueueSeparator.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
-
-        FitToContentLater();
-    }
-
-    private void OnOpenFileClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenFile, "Couldn't open the file.");
-
-    private void OnOpenInFolderClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenInFolder, "Couldn't open the folder.");
-
-    // Starts the row's action for its result (compressed file, or the original when under target); failures show a message
-    private void RunFileAction(object sender, Func<string, System.Diagnostics.ProcessStartInfo> action, string failure)
-    {
-        if ((sender as FrameworkElement)?.DataContext is not QueueItem { ResultPath: { } path })
-        {
-            return;
-        }
-
-        try
-        {
-            using var process = System.Diagnostics.Process.Start(action(path));
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or ArgumentException or InvalidOperationException)
-        {
-            Log.Error(failure, ex);
-            ShowError(failure);
-        }
-    }
-
-    // Cancel all only shows while a row is waiting or compressing
-    private void UpdateCancelAll()
-    {
-        var visible = _queue.CanCancelAny ? Visibility.Visible : Visibility.Collapsed;
-
-        if (CancelAllLink.Visibility != visible)
-        {
-            CancelAllLink.Visibility = visible;
-            FitToContentLater();
-        }
-    }
-
-    private void OnCancelAllClick(object sender, RoutedEventArgs e) => _queue.CancelAll();
-
     private async void OnBatchCompleted(object? sender, IReadOnlyList<QueueItem> batch)
     {
         var outputPath = CompressQueue.ShouldCopyToClipboard(batch, _settings.CopyToClipboard);
@@ -393,86 +332,6 @@ public sealed partial class MainWindow : Window
     private void OnCopiedTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args) => CopiedBar.IsOpen = false;
 
     // =========================================================================
-    // WINDOW HEIGHT
-    // =========================================================================
-
-    // Runs after the current layout change lands, so the measure sees the new rows
-    private void FitToContentLater() =>
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => FitToContent(animate: true));
-
-    // Sizes the window to its content: the height the page wants with nothing squeezed.
-    // Dragging taller than that is blocked; dragging shorter is allowed down to the empty-page height.
-    private void FitToContent(bool animate)
-    {
-        if (SettingsView.Visibility == Visibility.Visible || Content is not FrameworkElement page || page.XamlRoot is null)
-        {
-            return;
-        }
-
-        // Natural content height (star rows act like Auto when height is unlimited)
-        page.Measure(new Windows.Foundation.Size(page.ActualWidth, double.PositiveInfinity));
-
-        var scale        = page.XamlRoot.RasterizationScale;
-        var clientTarget = (int)Math.Ceiling(page.DesiredSize.Height * scale);
-        var frame        = AppWindow.Size.Height - AppWindow.ClientSize.Height;
-        var outerTarget  = clientTarget + frame;
-        var presenter    = (OverlappedPresenter)AppWindow.Presenter;
-
-        page.InvalidateMeasure();
-
-        if (_minOuterHeight == 0)
-        {
-            _minOuterHeight = outerTarget;
-        }
-
-        presenter.PreferredMinimumHeight = Math.Min(_minOuterHeight, outerTarget);
-        presenter.PreferredMaximumHeight = Math.Max(outerTarget, AppWindow.Size.Height);
-
-        if (!animate)
-        {
-            AppWindow.ResizeClient(new SizeInt32(AppWindow.ClientSize.Width, clientTarget));
-            presenter.PreferredMaximumHeight = outerTarget;
-            return;
-        }
-
-        AnimateClientHeight(clientTarget, () => presenter.PreferredMaximumHeight = outerTarget);
-    }
-
-    // Eases the window height to the target over a quarter second
-    private void AnimateClientHeight(int target, Action done)
-    {
-        _heightFrom  = AppWindow.ClientSize.Height;
-        _heightTo    = target;
-        _heightDone  = done;
-        _heightClock = System.Diagnostics.Stopwatch.StartNew();
-
-        if (_heightTimer is null)
-        {
-            _heightTimer             = DispatcherQueue.CreateTimer();
-            _heightTimer.Interval    = TimeSpan.FromMilliseconds(15);
-            _heightTimer.IsRepeating = true;
-            _heightTimer.Tick       += OnHeightTimerTick;
-        }
-
-        _heightTimer.Start();
-    }
-
-    private void OnHeightTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
-    {
-        var progress = Math.Min(1, _heightClock!.Elapsed.TotalMilliseconds / HeightAnimation.TotalMilliseconds);
-        var eased    = 1 - Math.Pow(1 - progress, 3);
-        var height   = (int)Math.Round(_heightFrom + (_heightTo - _heightFrom) * eased);
-
-        AppWindow.ResizeClient(new SizeInt32(AppWindow.ClientSize.Width, height));
-
-        if (progress >= 1)
-        {
-            sender.Stop();
-            _heightDone?.Invoke();
-        }
-    }
-
-    // =========================================================================
     // SETTINGS VIEW
     // =========================================================================
 
@@ -513,7 +372,7 @@ public sealed partial class MainWindow : Window
             if (!show)
             {
                 BackButton.Visibility = Visibility.Collapsed;
-                FitToContentLater();
+                _fitter.FitLater();
             }
         };
 
@@ -546,13 +405,4 @@ public sealed partial class MainWindow : Window
 
     private void SyncWindowButtonTheme(FrameworkElement page) =>
         AppWindow.TitleBar.PreferredTheme = page.ActualTheme == ElementTheme.Light ? TitleBarTheme.Light : TitleBarTheme.Dark;
-
-    // First show: set the width, then snap the height to the content without animating
-    private void OnFirstLoaded()
-    {
-        var scale = Content.XamlRoot?.RasterizationScale ?? 1.0;
-
-        AppWindow.ResizeClient(new SizeInt32((int)(WindowWidth * scale), AppWindow.ClientSize.Height));
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => FitToContent(animate: false));
-    }
 }
