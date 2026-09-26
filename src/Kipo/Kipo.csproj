@@ -23,8 +23,9 @@
     <SelfContained>true</SelfContained>
   </PropertyGroup>
 
-  <!-- MSIX: packaged build, uses the WinAppSDK framework package -->
+  <!-- MSIX: packaged build, uses the WinAppSDK framework package; .NET ships inside so clean PCs can run it -->
   <PropertyGroup Condition="'$(KipoPackaging)' == 'Msix'">
+    <SelfContained>true</SelfContained>
     <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
     <AppxBundle>Never</AppxBundle>

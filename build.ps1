@@ -56,12 +56,13 @@ foreach ($platform in $Platforms) {
         -p:AppxPackageDir="$dist\msix\"
     if ($LASTEXITCODE) { throw "MSIX build failed for $platform" }
 
-    # Unpackaged, self-contained
+    # Unpackaged, self-contained (start clean so no leftover files ship in the MSI)
+    Remove-Item $publishDir -Recurse -Force -ErrorAction SilentlyContinue
     dotnet publish "$root\src\Kipo\Kipo.csproj" -c $Configuration -r $rid -p:Platform=$msbuildPlatform -o $publishDir
     if ($LASTEXITCODE) { throw "Unpackaged publish failed for $platform" }
 
-    # MSI
-    dotnet build "$root\src\Kipo.Installer\Kipo.Installer.wixproj" -c $Configuration `
+    # MSI (full rebuild: WiX doesn't notice when only the published files changed)
+    dotnet build "$root\src\Kipo.Installer\Kipo.Installer.wixproj" -c $Configuration --no-incremental `
         -p:Platform=$platform `
         -p:InstallerPlatform=$platform `
         -p:PublishDir=$publishDir `
