@@ -24,7 +24,7 @@ internal static class TestVideos
     public static string Folder =>
         Environment.GetEnvironmentVariable("KIPO_TEST_VIDEOS") is { Length: > 0 } folder
             ? folder
-            : @"C:\Users\artistro08\Videos\Screen Recordings";
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "Screen Recordings");
 
     public static string NewTempDir() => Directory.CreateTempSubdirectory("kipo-test-").FullName;
 

@@ -10,7 +10,7 @@ namespace Kipo;
 /// <remarks>
 /// Shows one row per file (icon/spinner/checkmark, status, Copy, Open in folder, ⋯ Open file,
 /// cancel) plus the separator above and the Cancel all link below. The list and separator
-/// appear once there are files; Cancel all only while something can still be cancelled.
+/// appear once there are files; Cancel all only while something can still be canceled.
 /// Raises <see cref="LayoutChanged"/> whenever its height changes so the window can resize,
 /// <see cref="Copied"/> after a Copy, and <see cref="Error"/> with a plain-language message when a file action fails.
 /// </remarks>

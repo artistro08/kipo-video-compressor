@@ -83,8 +83,17 @@ public sealed class ShellRegistrar(ISparsePackages packages, string classesPath,
     /// <returns>A task that completes when done. Never throws.</returns>
     public async Task UnregisterAsync()
     {
-        SetClassicHidden(false);
-        ForgetFailure();
+        try
+        {
+            SetClassicHidden(false);
+            ForgetFailure();
+        }
+#pragma warning disable CA1031 // Uninstall cleanup is best effort
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            Failed?.Invoke(this, ex);
+        }
 
         try
         {

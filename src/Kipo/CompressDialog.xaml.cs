@@ -153,7 +153,8 @@ public sealed partial class CompressDialog : Window
 
         var mb = TypedSize() ?? _settings.CustomMb;
 
-        _settings    = (_settings with { CustomMb = mb }).Normalize();
+        // Re-read so a change made in the main window since this dialog opened isn't overwritten
+        _settings    = (_settingsStore.Load() with { CustomMb = mb }).Normalize();
         _targetBytes = _settings.CustomMb * AppSettings.BytesPerMb;
 
         try
@@ -249,7 +250,7 @@ public sealed partial class CompressDialog : Window
 
     private async void OnBatchCompleted(object? sender, IReadOnlyList<QueueItem> batch)
     {
-        var outputPath = CompressQueue.ShouldCopyToClipboard(batch, _settings.CopyToClipboard);
+        var outputPath = CompressQueue.ShouldCopyToClipboard(batch, _settingsStore.Load().CopyToClipboard);
 
         if (outputPath is null)
         {

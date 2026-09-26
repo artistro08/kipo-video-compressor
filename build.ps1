@@ -3,6 +3,7 @@
 #
 # Outputs:  dist\msix\  signed MSIX per platform
 #           dist\msi\   MSI per platform (self-contained, runs on a clean PC)
+#           dist\kipo-dev.cer  public signing certificate to trust
 # Used for: producing installable packages locally.
 # Needs:    .NET 10 SDK (https://dotnet.microsoft.com/download). WiX and the MSIX
 #           tooling come in through NuGet during the build.
@@ -36,6 +37,7 @@ if (-not $cert) {
         -Subject 'CN=Kipo Dev' `
         -KeyUsage DigitalSignature `
         -FriendlyName 'Kipo Dev' `
+        -NotAfter (Get-Date).AddYears(10) `
         -CertStoreLocation 'Cert:\CurrentUser\My' `
         -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
 }
@@ -44,10 +46,12 @@ New-Item -ItemType Directory -Force (Split-Path $certFile) | Out-Null
 Export-Certificate -Cert $cert -FilePath $certFile | Out-Null
 
 # Windows SDK packaging tools (makeappx, signtool)
+$timestamp = 'http://timestamp.digicert.com'
 $sdkBin   = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Directory |
     Where-Object { Test-Path "$($_.FullName)\x64\makeappx.exe" } |
     Sort-Object Name -Descending |
     Select-Object -First 1
+if (-not $sdkBin) { throw 'Windows SDK not found. Install it with the Visual Studio Installer.' }
 $makeAppx = "$($sdkBin.FullName)\x64\makeappx.exe"
 $signTool = "$($sdkBin.FullName)\x64\signtool.exe"
 
@@ -68,6 +72,7 @@ foreach ($platform in $Platforms) {
         -p:Platform=$msbuildPlatform `
         -p:KipoPackaging=Msix `
         -p:PackageCertificateThumbprint=$($cert.Thumbprint) `
+        -p:AppxPackageSigningTimestampServerUrl=$timestamp `
         -p:AppxPackageDir="$dist\msix\"
     if ($LASTEXITCODE) { throw "MSIX build failed for $platform" }
 
@@ -86,7 +91,7 @@ foreach ($platform in $Platforms) {
     & $makeAppx pack /d $sparseStage /p "$publishDir\Kipo.Sparse.msix" /nv /o | Out-Null
     if ($LASTEXITCODE) { throw "Sparse package build failed for $platform" }
 
-    & $signTool sign /fd SHA256 /sha1 $cert.Thumbprint "$publishDir\Kipo.Sparse.msix" | Out-Null
+    & $signTool sign /fd SHA256 /sha1 $cert.Thumbprint /tr $timestamp /td SHA256 "$publishDir\Kipo.Sparse.msix" | Out-Null
     if ($LASTEXITCODE) { throw "Sparse package signing failed for $platform" }
 
     # MSI (full rebuild: WiX doesn't notice when only the published files changed)
@@ -97,6 +102,9 @@ foreach ($platform in $Platforms) {
         -o "$dist\msi\"
     if ($LASTEXITCODE) { throw "MSI build failed for $platform" }
 }
+
+# Ship the public certificate next to the packages
+Copy-Item $certFile $dist
 
 Write-Host "Done. Packages are in $dist"
 Write-Host ""

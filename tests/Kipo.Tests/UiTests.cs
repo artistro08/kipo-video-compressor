@@ -753,7 +753,7 @@ public sealed partial class UiTests
         // Window grows to fit the link; click once it has settled
         SettledHeight();
         ById("CancelAllLink").Click();
-        Assert.IsTrue(Retry.WhileFalse(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")) is null, Short).Result, "Cancel all still shown after cancelling");
+        Assert.IsTrue(Retry.WhileFalse(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")) is null, Short).Result, "Cancel all still shown after canceling");
     }
 
     [STATestMethod]
