@@ -229,7 +229,7 @@ public sealed partial class MainWindow : Window
         FitToContentLater();
     }
 
-    private void OnShowFileClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.ShowFile, "Couldn't open the file.");
+    private void OnOpenFileClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenFile, "Couldn't open the file.");
 
     private void OnOpenInFolderClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenInFolder, "Couldn't open the folder.");
 

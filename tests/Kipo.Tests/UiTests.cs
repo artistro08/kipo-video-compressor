@@ -676,7 +676,7 @@ public sealed class UiTests
         WaitForRows(1, "Done", Long);
 
         var row    = Rows()[0];
-        var show   = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Show file"))) ?? throw new AssertFailedException("No Show file button");
+        var show   = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))) ?? throw new AssertFailedException("No Open file button");
         var folder = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))) ?? throw new AssertFailedException("No Open in folder button");
         var window = _window.BoundingRectangle;
 
@@ -703,7 +703,7 @@ public sealed class UiTests
         PasteText(source);
         WaitForRows(1, "Already under target", Short);
 
-        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Show file"))), "No Show file button");
+        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))), "No Open file button");
         Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))), "No Open in folder button");
     }
 

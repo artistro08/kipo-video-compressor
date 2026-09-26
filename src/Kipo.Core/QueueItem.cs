@@ -96,7 +96,7 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
     public bool IsCompressing => Status == ItemStatus.Compressing;
 
     /// <summary>
-    /// The file the row's Show file and Open in folder buttons use: the compressed output,
+    /// The file the row's Open file and Open in folder buttons use: the compressed output,
     /// or the original when it was already under target. Null when there's nothing to show.
     /// </summary>
     public string? ResultPath => Status switch
@@ -106,7 +106,7 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
         _                                            => null,
     };
 
-    /// <summary>True when there's a file to show; the row then offers Show file and Open in folder.</summary>
+    /// <summary>True when there's a file to show; the row then offers Open file and Open in folder.</summary>
     public bool HasOutput => ResultPath is not null;
 
     public string StatusText => Status switch

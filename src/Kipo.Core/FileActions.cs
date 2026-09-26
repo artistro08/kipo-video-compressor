@@ -6,7 +6,7 @@ namespace Kipo.Core;
 /// Launch settings for the finished-row buttons.
 /// </summary>
 /// <remarks>
-/// "Show file" opens the compressed video in the default app; "Open in folder" opens
+/// "Open file" opens the compressed video in the default app; "Open in folder" opens
 /// Explorer with the file selected. Only full local paths without quotes are accepted,
 /// so nothing can break out of the Explorer argument.
 /// </remarks>
@@ -16,7 +16,7 @@ public static class FileActions
     /// <param name="path">Full path of the compressed video.</param>
     /// <returns>Start info to pass to <see cref="Process.Start(ProcessStartInfo)"/>.</returns>
     /// <exception cref="ArgumentException">When the path isn't a full local path or contains a quote.</exception>
-    public static ProcessStartInfo ShowFile(string path)
+    public static ProcessStartInfo OpenFile(string path)
     {
         EnsureSafe(path);
 

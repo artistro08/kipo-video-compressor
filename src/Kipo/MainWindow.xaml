@@ -187,13 +187,13 @@
                                             VerticalAlignment="Center"
                                             Visibility="{x:Bind HasOutput, Mode=OneWay}">
                                     <Button Padding="10,4"
-                                            AutomationProperties.Name="Show file"
-                                            Click="OnShowFileClick">
+                                            AutomationProperties.Name="Open file"
+                                            Click="OnOpenFileClick">
                                         <StackPanel Orientation="Horizontal"
                                                     Spacing="6">
-                                            <FontIcon Glyph="&#xE768;"
+                                            <FontIcon Glyph="&#xE8E5;"
                                                       FontSize="12" />
-                                            <TextBlock Text="Show file"
+                                            <TextBlock Text="Open file"
                                                        FontSize="12" />
                                         </StackPanel>
                                     </Button>

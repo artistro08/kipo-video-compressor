@@ -6,9 +6,9 @@ namespace Kipo.Tests;
 public sealed class FileActionsTests
 {
     [TestMethod]
-    public void ShowFile_OpensWithDefaultApp()
+    public void OpenFile_OpensWithDefaultApp()
     {
-        var start = FileActions.ShowFile(@"C:\v\clip-compressed.mp4");
+        var start = FileActions.OpenFile(@"C:\v\clip-compressed.mp4");
 
         Assert.AreEqual(@"C:\v\clip-compressed.mp4", start.FileName);
         Assert.IsTrue(start.UseShellExecute);
@@ -29,7 +29,7 @@ public sealed class FileActionsTests
     [DataRow(@"C:\v\bad"".mp4")]
     public void Actions_RejectUnsafePaths(string path)
     {
-        Assert.ThrowsExactly<ArgumentException>(() => FileActions.ShowFile(path));
+        Assert.ThrowsExactly<ArgumentException>(() => FileActions.OpenFile(path));
         Assert.ThrowsExactly<ArgumentException>(() => FileActions.OpenInFolder(path));
     }
 }
