@@ -76,7 +76,8 @@ public partial class App : Application
             request =>
             {
                 var dialog = new CompressDialog(request);
-                dialog.Closed += (_, _) => _batcher?.Forget(dialog);   // later files open a new window
+                dialog.Closed        += (_, _) => _batcher?.Forget(dialog);   // later files open a new window
+                dialog.StopConfirmed += (_, _) => _batcher?.Forget(dialog);
                 dialog.Activate();
                 return dialog;
             },

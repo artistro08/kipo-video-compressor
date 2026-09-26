@@ -250,15 +250,47 @@ public sealed partial class UiTests
 
         Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("RowSpinner")), Short).Result, "Not compressing");
 
-        _window.Close();
+        // Same message the title bar's X sends
+        using (var kipo = Process.GetProcessById(_app!.ProcessId))
+        {
+            kipo.CloseMainWindow();
+        }
 
-        var prompt = Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByName("Stop compressing and close?")), Short).Result;
-        Assert.IsNotNull(prompt, "No close prompt");
+        Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByName("Stop compressing and close?")), Short).Result, "No close prompt");
 
         var stop = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Stop"))) ?? throw new AssertFailedException("No Stop button");
         stop.Click();
 
-        Assert.IsTrue(Retry.WhileFalse(() => _app!.HasExited, Short).Result, "Dialog didn't close");
+        Assert.IsTrue(Retry.WhileFalse(() => _app!.HasExited, Short).Result, "Window didn't close");
+        Assert.AreEqual(0, Directory.GetFiles(_dir, "*.part").Length, "Unfinished .part left behind");
+    }
+
+    [STATestMethod]
+    [Timeout(600_000)]
+    public void MainWindow_CloseWhileCompressing_AsksThenStops()
+    {
+        // Two large files, so something is still running when the window closes (hardware encoding is quick)
+        var first  = TestVideos.CopyToTemp(_dir, TestVideos.Large);
+        var second = Path.Combine(_dir, "second copy.mp4");
+        File.Copy(first, second);
+
+        Launch(new AppSettings { UseCustom = true, CustomMb = 8, CopyToClipboard = false });
+        PasteText(first + Environment.NewLine + second);
+
+        Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("RowSpinner")), Short).Result, "Not compressing");
+
+        // Same message the title bar's X sends
+        using (var kipo = Process.GetProcessById(_app!.ProcessId))
+        {
+            kipo.CloseMainWindow();
+        }
+
+        Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByName("Stop compressing and close?")), Short).Result, "No close prompt");
+
+        var stop = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Stop"))) ?? throw new AssertFailedException("No Stop button");
+        stop.Click();
+
+        Assert.IsTrue(Retry.WhileFalse(() => _app!.HasExited, Short).Result, "Window didn't close");
         Assert.AreEqual(0, Directory.GetFiles(_dir, "*.part").Length, "Unfinished .part left behind");
     }
 

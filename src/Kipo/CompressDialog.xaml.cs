@@ -33,8 +33,7 @@ public sealed partial class CompressDialog : Window
     private readonly List<string> _pending = [];
     private AppSettings _settings;
     private long _targetBytes;
-    private bool _closeConfirmed;
-    private bool _prompting;
+    private readonly CloseGuard _closeGuard;
 
     /// <summary>Opens the dialog for a right-click request.</summary>
     /// <param name="request">A <see cref="LaunchAction.Compress"/> request.</param>
@@ -63,7 +62,7 @@ public sealed partial class CompressDialog : Window
         QueueView.Copied        += (_, _) => WindowChrome.ShowBriefly(CopiedBar, CopiedAlertDuration);
         QueueView.Attach(_queue);
         CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => _fitter.FitLater());
-        AppWindow.Closing       += OnClosing;
+        _closeGuard              = new CloseGuard(this, _queue);
 
         if (Content is FrameworkElement page)
         {
@@ -86,6 +85,13 @@ public sealed partial class CompressDialog : Window
             _targetBytes = request.SizeMb!.Value * AppSettings.BytesPerMb;
             _queue.AddPaths(request.Paths, _targetBytes);
         }
+    }
+
+    /// <summary>Fires when the user chose to stop and close; later launches should open a new window.</summary>
+    public event EventHandler? StopConfirmed
+    {
+        add => _closeGuard.StopConfirmed += value;
+        remove => _closeGuard.StopConfirmed -= value;
     }
 
     /// <summary>Adds files from a launch that arrived while this dialog was open.</summary>
@@ -258,59 +264,6 @@ public sealed partial class CompressDialog : Window
         catch (Exception ex) when (ex.HResult < 0 || ex is IOException)
         {
             Log.Error("Copy to clipboard failed", ex);
-        }
-    }
-
-    // =========================================================================
-    // CLOSING
-    // =========================================================================
-
-    // Closing mid-compress asks first; Stop cancels (removing .part files) then closes
-    private async void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
-    {
-        if (_closeConfirmed || !_queue.CanCancelAny)
-        {
-            return;
-        }
-
-        args.Cancel = true;
-
-        if (_prompting || Content.XamlRoot is null)
-        {
-            return;
-        }
-
-        _prompting = true;
-
-        try
-        {
-            var prompt = new ContentDialog
-            {
-                Title             = "Stop compressing and close?",
-                PrimaryButtonText = "Stop",
-                CloseButtonText   = "Keep going",
-                DefaultButton     = ContentDialogButton.Close,
-                XamlRoot          = Content.XamlRoot,
-            };
-
-            if (await prompt.ShowAsync() != ContentDialogResult.Primary)
-            {
-                return;
-            }
-
-            _queue.CancelAll();
-            await _queue.WhenIdle();
-
-            _closeConfirmed = true;
-            Close();
-        }
-        catch (Exception ex) when (ex.HResult < 0)
-        {
-            Log.Error("Close prompt failed", ex);
-        }
-        finally
-        {
-            _prompting = false;
         }
     }
 }

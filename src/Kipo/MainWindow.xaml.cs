@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
     private bool _loadingControls;
     private bool _dialogOpen;
     private readonly WindowFitter _fitter;
+    private readonly CloseGuard _closeGuard;
     private Storyboard? _viewStory;
 
     public MainWindow()
@@ -52,6 +53,7 @@ public sealed partial class MainWindow : Window
         QueueView.Error         += (_, message) => ShowError(message);
         QueueView.Copied        += (_, _) => WindowChrome.ShowBriefly(CopiedBar, CopiedAlertDuration);
         QueueView.Attach(_queue);
+        _closeGuard = new CloseGuard(this, _queue);   // ask before closing mid-compress
         CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => _fitter.FitLater());
 
         LoadControls();
