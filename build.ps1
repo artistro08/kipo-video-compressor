@@ -73,6 +73,7 @@ foreach ($platform in $Platforms) {
         -p:KipoPackaging=Msix `
         -p:PackageCertificateThumbprint=$($cert.Thumbprint) `
         -p:AppxPackageSigningTimestampServerUrl=$timestamp `
+        -p:AppxPackageSigningTimestampDigestAlgorithm=SHA256 `
         -p:AppxPackageDir="$dist\msix\"
     if ($LASTEXITCODE) { throw "MSIX build failed for $platform" }
 
