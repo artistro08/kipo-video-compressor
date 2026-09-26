@@ -71,8 +71,22 @@ public sealed class ShellRegistrarTests
         await registrar.EnsureRegisteredAsync(_msix, _dir);
 
         Assert.IsFalse(PathValidator.VideoExtensions.Any(LegacyDisabled), "Classic entry hidden after a failure");
-        Assert.AreEqual(1, logs, "Failure reported more than once");
-        Assert.AreEqual(1, _packages.RegisterCalls, "Retried after a remembered failure");
+        Assert.AreEqual(1, logs, "Same failure reported more than once");
+        Assert.AreEqual(2, _packages.RegisterCalls, "Didn't retry on the next launch");
+    }
+
+    [TestMethod]
+    public async Task Ensure_AfterFailure_CertificateTrusted_Registers()
+    {
+        // First launch before the certificate is trusted, next launch after
+        _packages.Fail = true;
+        await Registrar().EnsureRegisteredAsync(_msix, _dir);
+
+        _packages.Fail = false;
+        await Registrar().EnsureRegisteredAsync(_msix, _dir);
+
+        Assert.IsTrue(_packages.Registered, "Never registered once the certificate was trusted");
+        Assert.IsTrue(PathValidator.VideoExtensions.All(LegacyDisabled));
     }
 
     [TestMethod]

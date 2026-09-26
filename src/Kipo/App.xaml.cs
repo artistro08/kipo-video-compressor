@@ -76,19 +76,13 @@ public partial class App : Application
             request =>
             {
                 var dialog = new CompressDialog(request);
+                dialog.Closed += (_, _) => _batcher?.Forget(dialog);   // later files open a new window
                 dialog.Activate();
                 return dialog;
             },
             (dialog, paths) => dialog.AddPaths(paths));
 
         var request = LaunchRequest.Parse(Environment.GetCommandLineArgs().Skip(1).ToList());
-
-        if (request.Action == LaunchAction.UnregisterShell)
-        {
-            ShellRegistration.Unregister();
-            Exit();
-            return;
-        }
 
         Route(request);
         ShellRegistration.EnsureInBackground();
@@ -114,10 +108,6 @@ public partial class App : Application
         {
             case LaunchAction.Compress:
                 _batcher!.Submit(request);
-                break;
-
-            case LaunchAction.UnregisterShell:
-                ShellRegistration.Unregister();
                 break;
 
             default:

@@ -86,6 +86,33 @@ public sealed partial class UiTests
 
     [STATestMethod]
     [Timeout(120_000)]
+    public void UnregisterShell_WhileKipoIsOpen_CleansUpBeforeExiting()
+    {
+        const string key = @"Software\Classes\SystemFileAssociations\.mp4\shell\Kipo";
+
+        Launch(new AppSettings { PresetMb = 10 });
+
+        using (var planted = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(key))
+        {
+            planted.SetValue("LegacyDisable", "");
+        }
+
+        try
+        {
+            using var uninstall = Process.Start(KipoStart(["--unregister-shell"]))!;
+
+            Assert.IsTrue(uninstall.WaitForExit(15_000), "--unregister-shell didn't exit");
+            Assert.IsNull(Microsoft.Win32.Registry.CurrentUser.OpenSubKey(key), "Override still there when the uninstall step finished");
+            Assert.IsFalse(_app!.HasExited, "The open Kipo window was closed");
+        }
+        finally
+        {
+            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(key, throwOnMissingSubKey: false);
+        }
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
     public void CustomForm_Layout()
     {
         var sources = TestVideos.Batch.Select(name => TestVideos.CopyToTemp(_dir, name)).ToArray();

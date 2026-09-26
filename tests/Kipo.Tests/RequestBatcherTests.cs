@@ -73,6 +73,31 @@ public sealed class RequestBatcherTests
     }
 
     [TestMethod]
+    public void ClosedDialog_IsForgotten_NextRequestOpensNew()
+    {
+        var batcher = Batcher();
+
+        batcher.Submit(Req("25", @"C:\a.mp4"));
+        batcher.Forget(_dialogs[0]);   // user closed it
+        batcher.Submit(Req("25", @"C:\b.mp4"));
+
+        Assert.AreEqual(2, _dialogs.Count);
+        Assert.AreEqual(1, _dialogs[0].Count, "File went into the closed dialog");
+    }
+
+    [TestMethod]
+    public void ForgettingAnOlderDialog_KeepsTheCurrentOne()
+    {
+        var batcher = Batcher();
+
+        batcher.Submit(Req("25", @"C:\a.mp4"));
+        batcher.Forget([]);
+        batcher.Submit(Req("25", @"C:\b.mp4"));
+
+        Assert.AreEqual(1, _dialogs.Count);
+    }
+
+    [TestMethod]
     public void NonCompressRequest_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() => Batcher().Submit(LaunchRequest.Parse([])));

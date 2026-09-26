@@ -53,4 +53,16 @@ public sealed class RequestBatcher<TTarget>(
 
         _lastAt = at;
     }
+
+    /// <summary>
+    /// Stops sending files to a dialog, for example because the user closed it.
+    /// </summary>
+    /// <param name="target">The dialog that closed.</param>
+    public void Forget(TTarget target)
+    {
+        if (_last is not null && ReferenceEquals(_last, target))
+        {
+            _last = default;
+        }
+    }
 }

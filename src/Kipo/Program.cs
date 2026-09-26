@@ -22,6 +22,13 @@ public static class Program
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
+        // MSI uninstall: clean up and exit here, without the UI or handing off to a running copy
+        if (Environment.GetCommandLineArgs() is [_, "--unregister-shell"])
+        {
+            ShellRegistration.Unregister();
+            return 0;
+        }
+
         if (RedirectToExistingInstance())
         {
             return 0;

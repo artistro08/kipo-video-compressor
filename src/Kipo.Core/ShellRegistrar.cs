@@ -29,8 +29,8 @@ public interface ISparsePackages
 /// registers a small signed identity package that points at the install folder. When that
 /// works, the classic registry entry is hidden for this user (a per-user <c>LegacyDisable</c>
 /// override) so it doesn't show twice. Registration needs the signing certificate to be
-/// trusted; if it isn't, the failure is reported once (a marker file remembers it) and the
-/// classic menu keeps working.
+/// trusted; until it is, every launch retries quietly (a marker file remembers the last
+/// error so each one is reported once) and the classic menu keeps working.
 /// </remarks>
 /// <param name="packages">Package manager access; tests pass a fake.</param>
 /// <param name="classesPath">HKCU path of the per-user classes key (<c>Software\Classes</c>).</param>
@@ -52,7 +52,7 @@ public sealed class ShellRegistrar(ISparsePackages packages, string classesPath,
         {
             if (!packages.IsRegistered())
             {
-                if (!File.Exists(msixPath) || File.Exists(failureMarker))
+                if (!File.Exists(msixPath))
                 {
                     return;
                 }
@@ -61,13 +61,17 @@ public sealed class ShellRegistrar(ISparsePackages packages, string classesPath,
             }
 
             SetClassicHidden(true);
+            ForgetFailure();
         }
 #pragma warning disable CA1031 // Any registration failure leaves the classic menu in place
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            RememberFailure();
-            Failed?.Invoke(this, ex);
+            // Retry every launch (the certificate may be trusted later), but report each error once
+            if (RememberFailure(ex.Message))
+            {
+                Failed?.Invoke(this, ex);
+            }
         }
     }
 
@@ -80,15 +84,7 @@ public sealed class ShellRegistrar(ISparsePackages packages, string classesPath,
     public async Task UnregisterAsync()
     {
         SetClassicHidden(false);
-
-        try
-        {
-            File.Delete(failureMarker);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Nothing to clean up
-        }
+        ForgetFailure();
 
         try
         {
@@ -120,16 +116,36 @@ public sealed class ShellRegistrar(ISparsePackages packages, string classesPath,
         }
     }
 
-    private void RememberFailure()
+    // Stores the error; returns true when it differs from the last one stored (so it's worth reporting)
+    private bool RememberFailure(string error)
     {
         try
         {
+            if (File.Exists(failureMarker) && File.ReadAllText(failureMarker) == error)
+            {
+                return false;
+            }
+
             Directory.CreateDirectory(Path.GetDirectoryName(failureMarker)!);
-            File.WriteAllText(failureMarker, DateTimeOffset.Now.ToString("u", System.Globalization.CultureInfo.InvariantCulture));
+            File.WriteAllText(failureMarker, error);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Without the marker it just retries next launch
+            // Without the marker the error may be logged again next launch
+        }
+
+        return true;
+    }
+
+    private void ForgetFailure()
+    {
+        try
+        {
+            File.Delete(failureMarker);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Nothing to clean up
         }
     }
 }
