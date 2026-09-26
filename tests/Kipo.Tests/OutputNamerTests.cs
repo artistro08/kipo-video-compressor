@@ -38,8 +38,20 @@ public sealed class OutputNamerTests
     }
 
     [TestMethod]
-    public void GetPartPath_UsesPartExtension()
+    public void GetPartPath_UsesPartExtensionNextToSource()
     {
-        Assert.AreEqual(@"C:\v\clip-compressed.part", OutputNamer.GetPartPath(@"C:\v\clip.mp4"));
+        var part = OutputNamer.GetPartPath(@"C:\v\clip.mp4");
+
+        Assert.AreEqual(@"C:\v", Path.GetDirectoryName(part));
+        Assert.IsTrue(Path.GetFileName(part).StartsWith("clip-compressed.", StringComparison.Ordinal));
+        Assert.AreEqual(".part", Path.GetExtension(part));
+    }
+
+    [TestMethod]
+    public void GetPartPath_UniquePerEncode()
+    {
+        // Two windows compressing clip.mp4 and clip.mov in one folder must not share a temp file
+        Assert.AreNotEqual(OutputNamer.GetPartPath(@"C:\v\clip.mp4"), OutputNamer.GetPartPath(@"C:\v\clip.mov"));
+        Assert.AreNotEqual(OutputNamer.GetPartPath(@"C:\v\clip.mp4"), OutputNamer.GetPartPath(@"C:\v\clip.mp4"));
     }
 }

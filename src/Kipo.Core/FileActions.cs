@@ -31,7 +31,10 @@ public static class FileActions
     {
         EnsureSafe(path);
 
-        return new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false };
+        // Full path: a bare "explorer.exe" would also be looked up in the current folder
+        var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+
+        return new ProcessStartInfo(explorer, $"/select,\"{path}\"") { UseShellExecute = false };
     }
 
     private static void EnsureSafe(string path)

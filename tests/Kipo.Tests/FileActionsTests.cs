@@ -19,7 +19,8 @@ public sealed class FileActionsTests
     {
         var start = FileActions.OpenInFolder(@"C:\my videos\clip-compressed.mp4");
 
-        Assert.AreEqual("explorer.exe", start.FileName);
+        // Full path, so an explorer.exe planted in the working folder can't be picked up instead
+        Assert.AreEqual(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), start.FileName);
         Assert.AreEqual("/select,\"C:\\my videos\\clip-compressed.mp4\"", start.Arguments);
     }
 

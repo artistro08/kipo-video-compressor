@@ -5,8 +5,9 @@ namespace Kipo.Core;
 /// </summary>
 /// <remarks>
 /// Output is always MP4: <c>name-compressed.mp4</c>, then <c>name-compressed (2).mp4</c>
-/// and up when a name is taken. While encoding, Kipo writes to <c>name-compressed.part</c>
-/// and renames it at the end so a half-written file never looks finished.
+/// and up when a name is taken. While encoding, Kipo writes to a uniquely named
+/// <c>name-compressed.&lt;id&gt;.part</c> and renames it at the end, so a half-written file never
+/// looks finished and two windows compressing same-named files never share a temp file.
 /// </remarks>
 public static class OutputNamer
 {
@@ -32,15 +33,15 @@ public static class OutputNamer
     }
 
     /// <summary>
-    /// Returns the temp path used while encoding.
+    /// Returns a new, unique temp path for one encode.
     /// </summary>
     /// <param name="sourcePath">Full path of the source video.</param>
-    /// <returns>Full <c>.part</c> path.</returns>
+    /// <returns>Full <c>.part</c> path; different on every call.</returns>
     public static string GetPartPath(string sourcePath)
     {
         var (folder, name) = Split(sourcePath);
 
-        return Path.Combine(folder, $"{name}-compressed.part");
+        return Path.Combine(folder, $"{name}-compressed.{Guid.NewGuid():N}.part");
     }
 
     private static (string Folder, string Name) Split(string sourcePath)
