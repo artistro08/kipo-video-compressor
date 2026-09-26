@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Kipo.Core/Kipo.Core.csproj" />
+    <Project Path="src/Kipo.Shell/Kipo.Shell.csproj" />
     <Project Path="src/Kipo/Kipo.csproj">
       <Platform Project="x64" />
     </Project>
