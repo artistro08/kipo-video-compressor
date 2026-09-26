@@ -1,6 +1,9 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Kipo.Core/Kipo.Core.csproj" />
+    <Project Path="src/Kipo/Kipo.csproj">
+      <Platform Project="x64" />
+    </Project>
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kipo.Tests/Kipo.Tests.csproj" />
