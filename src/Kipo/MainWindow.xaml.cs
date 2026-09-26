@@ -19,7 +19,7 @@ namespace Kipo;
 /// </remarks>
 public sealed partial class MainWindow : Window
 {
-    private const int    WindowWidth        = 420;
+    private const int    WindowWidth        = 520;
     private const double DropZoneWidthShare = 0.85;
     private const double BackButtonSize     = 32;
 
@@ -227,6 +227,29 @@ public sealed partial class MainWindow : Window
         CancelAllLink.Visibility  = hasItems ? Visibility.Visible : Visibility.Collapsed;
 
         FitToContentLater();
+    }
+
+    private void OnShowFileClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.ShowFile, "Couldn't open the file.");
+
+    private void OnOpenInFolderClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenInFolder, "Couldn't open the folder.");
+
+    // Starts the row's action for its compressed file; failures show a message instead of crashing
+    private void RunFileAction(object sender, Func<string, System.Diagnostics.ProcessStartInfo> action, string failure)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not QueueItem { OutputPath: { } path })
+        {
+            return;
+        }
+
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(action(path));
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or ArgumentException or InvalidOperationException)
+        {
+            Log.Error(failure, ex);
+            ShowError(failure);
+        }
     }
 
     private void OnCancelAllClick(object sender, RoutedEventArgs e) => _queue.CancelAll();

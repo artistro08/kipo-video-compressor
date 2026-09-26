@@ -68,6 +68,7 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
             if (Set(ref _status, value, nameof(StatusText), nameof(CanCancel)))
             {
                 Raise(nameof(IsDone));
+                Raise(nameof(HasOutput));
             }
         }
     }
@@ -89,6 +90,9 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
 
     /// <summary>True once the file needs nothing more: compressed, or already under target. The row shows a checkmark.</summary>
     public bool IsDone => Status is ItemStatus.Done or ItemStatus.DoneOverTarget or ItemStatus.Skipped;
+
+    /// <summary>True when a compressed file was written; the row then offers Show file and Open in folder.</summary>
+    public bool HasOutput => Status is ItemStatus.Done or ItemStatus.DoneOverTarget && OutputPath is not null;
 
     public string StatusText => Status switch
     {

@@ -102,10 +102,10 @@
                         <StackPanel HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Spacing="10">
-                            <TextBlock Text="Select a video"
+                            <TextBlock Text="Select a video to compress"
                                        HorizontalAlignment="Center"
                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="Drop, paste or browse for a video to compress."
+                            <TextBlock Text="Drag and drop, paste, or browse for a video"
                                        HorizontalAlignment="Center"
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
@@ -153,6 +153,7 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock VerticalAlignment="Center"
                                            FontFamily="{ThemeResource SymbolThemeFontFamily}"
@@ -168,7 +169,22 @@
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
-                                <Button Grid.Column="2"
+                                <!-- Finished-file actions -->
+                                <StackPanel Grid.Column="2"
+                                            Orientation="Horizontal"
+                                            Spacing="6"
+                                            VerticalAlignment="Center"
+                                            Visibility="{x:Bind HasOutput, Mode=OneWay}">
+                                    <Button Content="Show file"
+                                            Padding="10,4"
+                                            FontSize="12"
+                                            Click="OnShowFileClick" />
+                                    <Button Content="Open in folder"
+                                            Padding="10,4"
+                                            FontSize="12"
+                                            Click="OnOpenInFolderClick" />
+                                </StackPanel>
+                                <Button Grid.Column="3"
                                         VerticalAlignment="Center"
                                         Background="Transparent"
                                         BorderThickness="0"
@@ -230,6 +246,7 @@
                                   SelectionChanged="OnSizeChanged" />
                         <NumberBox x:Name="CustomSizeBox"
                                    Width="110"
+                                   Height="31"
                                    VerticalAlignment="Center"
                                    Minimum="1"
                                    Maximum="10000"
@@ -238,7 +255,12 @@
                                    Visibility="Collapsed"
                                    AutomationProperties.AutomationId="CustomSizeBox"
                                    AutomationProperties.Name="Custom size in MB"
-                                   ValueChanged="OnCustomSizeChanged" />
+                                   ValueChanged="OnCustomSizeChanged">
+                            <!-- One pixel shorter so its underline doesn't make it look taller than the dropdown -->
+                            <NumberBox.Resources>
+                                <x:Double x:Key="TextControlThemeMinHeight">31</x:Double>
+                            </NumberBox.Resources>
+                        </NumberBox>
                     </StackPanel>
 
                     <!-- Settings: icon only, no background or hover -->
@@ -301,10 +323,15 @@
                     <FontIcon Glyph="&#xE8C8;"
                               FontSize="20"
                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1"
-                               Text="Copy result to clipboard (single file)"
-                               VerticalAlignment="Center"
-                               TextWrapping="Wrap" />
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="Copy result to clipboard"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Only works for single file selection."
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                     <TextBlock x:Name="CopyToClipboardState"
                                Grid.Column="2"
                                VerticalAlignment="Center" />
@@ -315,7 +342,7 @@
                                   OffContent=""
                                   VerticalAlignment="Center"
                                   AutomationProperties.AutomationId="CopyToClipboardToggle"
-                                  AutomationProperties.Name="Copy result to clipboard (single file)"
+                                  AutomationProperties.Name="Copy result to clipboard"
                                   Toggled="OnCopyToggled" />
                 </Grid>
             </StackPanel>

@@ -81,6 +81,17 @@ public sealed class UiTests
         _automation = new UIA3Automation();
         _app        = Application.Launch(start);
         _window     = _app.GetMainWindow(_automation, Short) ?? throw new AssertFailedException("Kipo window didn't open");
+
+        // The window sets its width and height right after opening; wait so clicks land where aimed
+        var last = System.Drawing.Rectangle.Empty;
+        Retry.WhileFalse(() =>
+        {
+            Thread.Sleep(150);
+            var now    = _window.BoundingRectangle;
+            var steady = now == last;
+            last       = now;
+            return steady;
+        }, Short);
     }
 
     private AutomationElement ById(string id) =>
@@ -541,9 +552,25 @@ public sealed class UiTests
         var combo      = DrawnHeight(shot, window, ById("SizeCombo").BoundingRectangle);
         var box        = DrawnHeight(shot, window, ById("CustomSizeBox").BoundingRectangle);
 
-        // Up to 3px: the text field draws a thicker bottom underline than the dropdown border
-        Assert.IsTrue(Math.Abs(combo.Height - box.Height) <= 3, $"Dropdown draws {combo.Top}+{combo.Height}px, custom box {box.Top}+{box.Height}px");
-        Assert.IsTrue(Math.Abs(combo.Top - box.Top) <= 2, $"Not aligned: dropdown top {combo.Top}, box top {box.Top}");
+        Assert.IsTrue(Math.Abs(combo.Height - box.Height) <= 1, $"Dropdown draws {combo.Top}+{combo.Height}px, custom box {box.Top}+{box.Height}px");
+        Assert.IsTrue(Math.Abs(combo.Top - box.Top) <= 1, $"Not aligned: dropdown top {combo.Top}, box top {box.Top}");
+
+        // "Custom" and "20" sit on the same rows
+        var comboText = TextRows(shot, window, ById("SizeCombo").BoundingRectangle);
+        var boxText   = TextRows(shot, window, ById("CustomSizeBox").BoundingRectangle);
+
+        Assert.IsTrue(Math.Abs(comboText.Top - boxText.Top) <= 1 && Math.Abs(comboText.Bottom - boxText.Bottom) <= 1,
+            $"Text not aligned: dropdown text rows {comboText.Top}-{comboText.Bottom}, box text rows {boxText.Top}-{boxText.Bottom}");
+    }
+
+    // Rows holding bright text pixels in the left part of a control (where the value text is)
+    private static (int Top, int Bottom) TextRows(System.Drawing.Bitmap shot, System.Drawing.Rectangle window, System.Drawing.Rectangle control)
+    {
+        var rows = Enumerable.Range(control.Y - window.Y, control.Height)
+            .Where(y => Enumerable.Range(control.X - window.X + 8, 30).Any(x => shot.GetPixel(x, y).GetBrightness() > 0.7))
+            .ToList();
+
+        return rows.Count == 0 ? (0, 0) : (rows.Min(), rows.Max());
     }
 
     // Rows where a column just inside the control's left edge differs from the footer background
@@ -608,8 +635,8 @@ public sealed class UiTests
 
         var zone = ById("DropZone");
 
-        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Select a video")), "Title missing");
-        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Drop, paste or browse for a video to compress.")), "Compress note missing");
+        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Select a video to compress")), "Title missing");
+        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Drag and drop, paste, or browse for a video")), "Description missing");
     }
 
     [STATestMethod]
@@ -624,8 +651,10 @@ public sealed class UiTests
         // Plain panels aren't visible to test tools, so check the pieces inside the settings view
         var view   = ById("SettingsView");
         var toggle = ById("CopyToClipboardToggle").BoundingRectangle;
-        var label  = view.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Copy result to clipboard (single file)")))
-            ?? throw new AssertFailedException("Label missing");
+        var label  = view.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Copy result to clipboard")))
+            ?? throw new AssertFailedException("Title missing");
+
+        Assert.IsNotNull(view.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Only works for single file selection."))), "Description missing");
         var state  = view.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("On")))
             ?? throw new AssertFailedException("On/Off text missing");
         var scale  = ById("BackButton").BoundingRectangle.Height / 32.0;
@@ -633,6 +662,47 @@ public sealed class UiTests
         Assert.IsTrue(label.BoundingRectangle.Right < state.BoundingRectangle.Left, "Label should sit left of the On/Off text");
         Assert.IsTrue(state.BoundingRectangle.Right <= toggle.Left + 4, "On/Off text should sit left of the switch");
         Assert.IsTrue(_window.BoundingRectangle.Right - toggle.Right < 60 * scale, $"Switch should sit at the right edge ({_window.BoundingRectangle.Right - toggle.Right}px away)");
+    }
+
+    [STATestMethod]
+    [Timeout(600_000)]
+    public void FinishedRow_ShowsFileButtons_AndOpensFolder()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Small);
+        Launch(new AppSettings { UseCustom = true, CustomMb = 1, CopyToClipboard = false });
+
+        PasteText(source);
+        WaitForRows(1, "Done", Long);
+
+        var row    = Rows()[0];
+        var show   = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Show file"))) ?? throw new AssertFailedException("No Show file button");
+        var folder = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))) ?? throw new AssertFailedException("No Open in folder button");
+        var window = _window.BoundingRectangle;
+
+        Assert.IsTrue(show.BoundingRectangle.Right <= window.Right && folder.BoundingRectangle.Right <= window.Right, "Buttons cut off by the window edge");
+        Assert.IsTrue(show.BoundingRectangle.Width > 40 && folder.BoundingRectangle.Width > 40, "Buttons squeezed");
+
+        folder.Click();
+
+        var explorer = Retry.WhileNull(() => _automation!.GetDesktop()
+            .FindAllChildren(cf => cf.ByClassName("CabinetWClass"))
+            .FirstOrDefault(w => w.Name.Contains(Path.GetFileName(_dir), StringComparison.OrdinalIgnoreCase)), Short).Result;
+
+        Assert.IsNotNull(explorer, "Explorer didn't open the folder");
+        explorer.AsWindow().Close();
+    }
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void AlreadyUnderTargetRow_HasNoFileButtons()
+    {
+        var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
+        Launch(new AppSettings { PresetMb = 10 });
+
+        PasteText(source);
+        WaitForRows(1, "Already under target", Short);
+
+        Assert.IsNull(Rows()[0].FindFirstDescendant(cf => cf.ByName("Show file")), "Show file shown with no output");
     }
 
     [STATestMethod]
