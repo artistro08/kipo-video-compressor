@@ -36,6 +36,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Right-click menu add-in, published per CPU by build.ps1 into artifacts\shell\<rid> -->
+    <Content Include="$(MSBuildThisFileDirectory)..\..\artifacts\shell\$(RuntimeIdentifier)\Kipo.Shell.dll"
+             Link="Kipo.Shell.dll"
+             Condition="'$(RuntimeIdentifier)' != '' and Exists('$(MSBuildThisFileDirectory)..\..\artifacts\shell\$(RuntimeIdentifier)\Kipo.Shell.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+
     <!-- Copied on build and publish so the unpackaged (MSI) app has its icons too -->
     <Content Include="Assets\*.png;Assets\kipo.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

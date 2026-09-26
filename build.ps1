@@ -43,10 +43,17 @@ if (-not $cert) {
 New-Item -ItemType Directory -Force (Split-Path $certFile) | Out-Null
 Export-Certificate -Cert $cert -FilePath $certFile | Out-Null
 
+# Native AOT needs vswhere.exe on PATH (Visual Studio's vcvarsall calls it by name)
+$env:PATH = "$env:PATH;${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
 foreach ($platform in $Platforms) {
     $rid             = "win-$platform"
     $msbuildPlatform = if ($platform -eq 'arm64') { 'ARM64' } else { 'x64' }
     $publishDir      = Join-Path $root "artifacts\publish\$rid\"
+
+    # Right-click menu add-in (native DLL, bundled into both packages)
+    dotnet publish "$root\src\Kipo.Shell\Kipo.Shell.csproj" -c $Configuration -r $rid -o "$root\artifacts\shell\$rid"
+    if ($LASTEXITCODE) { throw "Right-click add-in build failed for $platform" }
 
     # MSIX
     dotnet publish "$root\src\Kipo\Kipo.csproj" -c $Configuration -r $rid `
