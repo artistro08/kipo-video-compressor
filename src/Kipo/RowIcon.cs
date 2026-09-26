@@ -14,7 +14,7 @@ public static class RowIcon
 
     public static string Glyph(bool isDone) => isDone ? CheckGlyph : VideoGlyph;
 
-    public static string Name(bool isDone) => isDone ? "Done" : "Video";
+    public static string Name(bool isDone) => isDone ? "Completed" : "Video";
 
     public static Visibility Hidden(bool hide) => hide ? Visibility.Collapsed : Visibility.Visible;
 

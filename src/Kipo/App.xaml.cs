@@ -13,6 +13,12 @@ namespace Kipo;
 public partial class App : Application
 {
     private MainWindow? _window;
+    private Microsoft.UI.Dispatching.DispatcherQueue? _dispatcher;
+    private RequestBatcher<CompressDialog>? _batcher;
+
+    private static readonly Lock EarlyGate = new();
+    private static readonly List<LaunchRequest> EarlyRequests = [];
+    private static App? _ready;
 
     public App()
     {
@@ -36,19 +42,100 @@ public partial class App : Application
         };
     }
 
-    /// <summary>Called when a second launch is redirected here; shows the existing window.</summary>
-    public static void BringMainWindowToFront()
+    /// <summary>
+    /// Called when a second launch is handed to this running copy: a right-click request
+    /// opens or joins a compress dialog, anything else brings the main window forward.
+    /// </summary>
+    /// <param name="args">The second launch's activation.</param>
+    public static void OnRedirected(Microsoft.Windows.AppLifecycle.AppActivationArguments args)
     {
-        if (Current is App { _window: { } window })
+        ArgumentNullException.ThrowIfNull(args);
+
+        var commandLine = args.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch ? launch.Arguments : null;
+        var request     = LaunchRequest.ParseCommandLine(commandLine);
+
+        lock (EarlyGate)
         {
-            window.DispatcherQueue.TryEnqueue(window.BringToFront);
+            // Still starting up: hold it until OnLaunched has set up routing
+            if (_ready is not { _dispatcher: { } dispatcher } app)
+            {
+                EarlyRequests.Add(request);
+                return;
+            }
+
+            dispatcher.TryEnqueue(() => app.Route(request));
         }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
-        _window.Activate();
+        _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        _batcher    = new RequestBatcher<CompressDialog>(
+            () => DateTimeOffset.Now,
+            TimeSpan.FromMilliseconds(500),
+            request =>
+            {
+                var dialog = new CompressDialog(request);
+                dialog.Activate();
+                return dialog;
+            },
+            (dialog, paths) => dialog.AddPaths(paths));
+
+        var request = LaunchRequest.Parse(Environment.GetCommandLineArgs().Skip(1).ToList());
+
+        if (request.Action == LaunchAction.UnregisterShell)
+        {
+            ShellRegistration.Unregister();
+            Exit();
+            return;
+        }
+
+        Route(request);
+
+        // Launches handed over while this copy was still starting; after this, hand-offs route directly
+        lock (EarlyGate)
+        {
+            _ready = this;
+
+            foreach (var early in EarlyRequests)
+            {
+                Route(early);
+            }
+
+            EarlyRequests.Clear();
+        }
+    }
+
+    // Compress requests go to a dialog; everything else shows the main window
+    private void Route(LaunchRequest request)
+    {
+        switch (request.Action)
+        {
+            case LaunchAction.Compress:
+                _batcher!.Submit(request);
+                break;
+
+            case LaunchAction.UnregisterShell:
+                ShellRegistration.Unregister();
+                break;
+
+            default:
+                ShowMainWindow();
+                break;
+        }
+    }
+
+    private void ShowMainWindow()
+    {
+        if (_window is null)
+        {
+            _window         = new MainWindow();
+            _window.Closed += (_, _) => _window = null;
+            _window.Activate();
+            return;
+        }
+
+        _window.BringToFront();
     }
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)

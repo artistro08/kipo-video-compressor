@@ -43,7 +43,7 @@ public static class Program
 
         if (main.IsCurrent)
         {
-            main.Activated += (_, _) => App.BringMainWindowToFront();
+            main.Activated += (_, args) => App.OnRedirected(args);
             return false;
         }
 

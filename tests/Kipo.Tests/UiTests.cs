@@ -23,7 +23,7 @@ namespace Kipo.Tests;
 [TestCategory("UI")]
 [DoNotParallelize]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Disposed in TestCleanup after each test.")]
-public sealed class UiTests
+public sealed partial class UiTests
 {
     private static readonly TimeSpan Short = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan Long  = TimeSpan.FromMinutes(5);
@@ -61,7 +61,7 @@ public sealed class UiTests
         Directory.Delete(_dataDir, true);
     }
 
-    private void Launch(AppSettings settings, string? theme = null)
+    private void Launch(AppSettings settings, string? theme = null, IReadOnlyList<string>? args = null)
     {
         if (!File.Exists(ExePath))
         {
@@ -70,8 +70,7 @@ public sealed class UiTests
 
         new SettingsStore(Path.Combine(_dataDir, "settings.json")).Save(settings);
 
-        var start = new ProcessStartInfo(ExePath) { UseShellExecute = false };
-        start.Environment["KIPO_DATA_DIR"] = _dataDir;
+        var start = KipoStart(args ?? []);
 
         if (theme is not null)
         {
@@ -314,7 +313,7 @@ public sealed class UiTests
 
         // Nothing left to cancel
         Assert.IsTrue(Retry.WhileFalse(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")) is null, Short).Result, "Cancel all shown with nothing to cancel");
-        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByAutomationId("RowIcon").And(cf.ByName("Done"))), "No checkmark on finished row");
+        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByAutomationId("RowIcon").And(cf.ByName("Completed"))), "No checkmark on finished row");
     }
 
     [STATestMethod]

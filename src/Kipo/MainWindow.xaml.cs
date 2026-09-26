@@ -31,7 +31,6 @@ public sealed partial class MainWindow : Window
     private AppSettings _settings;
     private bool _loadingControls;
     private bool _dialogOpen;
-    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _copiedTimer;
     private readonly WindowFitter _fitter;
     private Storyboard? _viewStory;
 
@@ -40,17 +39,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         // Title Bar
-        ExtendsContentIntoTitleBar = true;
-        SetTitleBar(AppTitleBar);
-        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;   // window buttons match the 48px title bar
-        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "kipo.ico"));   // taskbar and Alt+Tab
-
-        // Window buttons follow the app's theme, not only Windows' default
-        if (Content is FrameworkElement page)
-        {
-            page.ActualThemeChanged += (_, _) => SyncWindowButtonTheme(page);
-            page.Loaded             += (_, _) => SyncWindowButtonTheme(page);
-        }
+        WindowChrome.Apply(this, AppTitleBar);
 
         _settings = _settingsStore.Load();
         _queue    = new CompressQueue((item, progress, token) => Compressor.CompressAsync(item.Path, item.TargetBytes, progress, token));
@@ -217,7 +206,7 @@ public sealed partial class MainWindow : Window
         try
         {
             await ClipboardInput.CopyFileAsync(outputPath);
-            ShowCopiedAlert();
+            WindowChrome.ShowBriefly(CopiedBar, CopiedAlertDuration);
         }
         catch (Exception ex) when (ex.HResult < 0 || ex is IOException)
         {
@@ -316,20 +305,6 @@ public sealed partial class MainWindow : Window
     private void OnRootSizeChanged(object sender, SizeChangedEventArgs e) =>
         DropZone.Width = e.NewSize.Width * DropZoneWidthShare;
 
-    // Copied alert hides itself after a few seconds
-    private void ShowCopiedAlert()
-    {
-        CopiedBar.IsOpen = true;
-
-        _copiedTimer ??= DispatcherQueue.CreateTimer();
-        _copiedTimer.Interval    = CopiedAlertDuration;
-        _copiedTimer.IsRepeating = false;
-        _copiedTimer.Tick       -= OnCopiedTimerTick;
-        _copiedTimer.Tick       += OnCopiedTimerTick;
-        _copiedTimer.Start();
-    }
-
-    private void OnCopiedTimerTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args) => CopiedBar.IsOpen = false;
 
     // =========================================================================
     // SETTINGS VIEW
@@ -402,7 +377,4 @@ public sealed partial class MainWindow : Window
         Storyboard.SetTargetProperty(animation, property);
         story.Children.Add(animation);
     }
-
-    private void SyncWindowButtonTheme(FrameworkElement page) =>
-        AppWindow.TitleBar.PreferredTheme = page.ActualTheme == ElementTheme.Light ? TitleBarTheme.Light : TitleBarTheme.Dark;
 }
