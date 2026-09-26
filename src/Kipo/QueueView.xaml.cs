@@ -8,7 +8,7 @@ namespace Kipo;
 /// The file list shared by the main window and the compress dialog.
 /// </summary>
 /// <remarks>
-/// Shows one row per file (icon/spinner/checkmark, status, Copy, Open file, Open in folder,
+/// Shows one row per file (icon/spinner/checkmark, status, Copy, Open in folder, ⋯ Open file,
 /// cancel) plus the separator above and the Cancel all link below. The list and separator
 /// appear once there are files; Cancel all only while something can still be cancelled.
 /// Raises <see cref="LayoutChanged"/> whenever its height changes so the window can resize,
@@ -85,7 +85,10 @@ public sealed partial class QueueView : UserControl
     // Puts the row's result (compressed file, or the original when under target) on the clipboard
     private async void OnCopyClick(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not QueueItem { ResultPath: { } path })
+        // Menu items carry their row in Tag; flyouts don't inherit the row's DataContext
+        var item = sender as FrameworkElement;
+
+        if ((item?.Tag ?? item?.DataContext) is not QueueItem { ResultPath: { } path })
         {
             return;
         }
@@ -109,7 +112,10 @@ public sealed partial class QueueView : UserControl
     // Starts the row's action for its result (compressed file, or the original when under target); failures raise Error
     private void RunFileAction(object sender, Func<string, System.Diagnostics.ProcessStartInfo> action, string failure)
     {
-        if ((sender as FrameworkElement)?.DataContext is not QueueItem { ResultPath: { } path })
+        // Menu items carry their row in Tag; flyouts don't inherit the row's DataContext
+        var item = sender as FrameworkElement;
+
+        if ((item?.Tag ?? item?.DataContext) is not QueueItem { ResultPath: { } path })
         {
             return;
         }

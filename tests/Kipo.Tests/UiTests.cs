@@ -467,6 +467,20 @@ public sealed partial class UiTests
         Assert.IsTrue(hue is > 230 and < 290 && corner.GetSaturation() > 0.4, $"Exe icon corner isn't Kipo purple: {corner}");
     }
 
+    // "Open file" lives in the row's ⋯ menu, not as its own button
+    private void AssertOpenFileInOverflow(AutomationElement row)
+    {
+        Assert.IsNull(row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))), "Open file still a separate button");
+
+        SettledHeight();
+        (row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("More options"))) ?? throw new AssertFailedException("No More options button")).Click();
+
+        var item = Retry.WhileNull(() => _automation!.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName("Open file"))), Short).Result;
+
+        Keyboard.Type(VirtualKeyShort.ESCAPE);
+        Assert.IsNotNull(item, "No Open file in the More options menu");
+    }
+
     private AutomationElement? TitleText() =>
         _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Text).And(cf.ByName("Kipo Video Compressor")));
 
@@ -675,12 +689,13 @@ public sealed partial class UiTests
         WaitForRows(1, "Done", Long);
 
         var row    = Rows()[0];
-        var show   = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))) ?? throw new AssertFailedException("No Open file button");
+        var more   = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("More options"))) ?? throw new AssertFailedException("No More options button");
         var folder = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))) ?? throw new AssertFailedException("No Open in folder button");
         var window = _window.BoundingRectangle;
 
-        Assert.IsTrue(show.BoundingRectangle.Right <= window.Right && folder.BoundingRectangle.Right <= window.Right, "Buttons cut off by the window edge");
-        Assert.IsTrue(show.BoundingRectangle.Width > 40 && folder.BoundingRectangle.Width > 40, "Buttons squeezed");
+        Assert.IsTrue(more.BoundingRectangle.Right <= window.Right && folder.BoundingRectangle.Right <= window.Right, "Buttons cut off by the window edge");
+        Assert.IsTrue(folder.BoundingRectangle.Width > 40, "Open in folder squeezed");
+        AssertOpenFileInOverflow(row);
 
         folder.Click();
 
@@ -702,7 +717,7 @@ public sealed partial class UiTests
         PasteText(source);
         WaitForRows(1, "Already under target", Short);
 
-        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))), "No Open file button");
+        AssertOpenFileInOverflow(Rows()[0]);
 
         var folder = Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder")))
             ?? throw new AssertFailedException("No Open in folder button");

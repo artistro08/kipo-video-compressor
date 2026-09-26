@@ -303,7 +303,7 @@ public sealed partial class UiTests
         LaunchCompress(new AppSettings { PresetMb = 10 }, "25", source);
         WaitForRows(1, "Already under target", Short);
 
-        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open file"))));
+        AssertOpenFileInOverflow(Rows()[0]);
         Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))));
     }
 }
