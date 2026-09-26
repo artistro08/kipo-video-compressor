@@ -99,3 +99,7 @@ foreach ($platform in $Platforms) {
 }
 
 Write-Host "Done. Packages are in $dist"
+Write-Host ""
+Write-Host "Right-click menu: you need the Kipo signing certificate trusted for it to work (and to install the MSIX)."
+Write-Host "Trust it once, as admin:  Import-Certificate $certFile -CertStoreLocation Cert:\LocalMachine\TrustedPeople"
+Write-Host "Without it, MSI installs only get the menu under 'Show more options'."
