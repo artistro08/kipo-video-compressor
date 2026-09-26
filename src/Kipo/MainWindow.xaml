@@ -68,6 +68,7 @@
                   Padding="16,0,16,8"
                   AllowDrop="True"
                   Background="Transparent"
+                  KeyboardAcceleratorPlacementMode="Hidden"
                   DragOver="OnDragOver"
                   Drop="OnDrop"
                   SizeChanged="OnRootSizeChanged">
@@ -155,13 +156,23 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock VerticalAlignment="Center"
-                                           FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                           FontSize="16"
-                                           Text="{x:Bind local:RowIcon.Glyph(IsDone), Mode=OneWay}"
-                                           Foreground="{x:Bind local:RowIcon.Foreground(IsDone), Mode=OneWay}"
-                                           AutomationProperties.AutomationId="RowIcon"
-                                           AutomationProperties.Name="{x:Bind local:RowIcon.Name(IsDone), Mode=OneWay}" />
+                                <!-- Row Icon: video, spinner while compressing, checkmark when done -->
+                                <Grid Width="18"
+                                      VerticalAlignment="Center">
+                                    <TextBlock FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                               FontSize="16"
+                                               Text="{x:Bind local:RowIcon.Glyph(IsDone), Mode=OneWay}"
+                                               Foreground="{x:Bind local:RowIcon.Foreground(IsDone), Mode=OneWay}"
+                                               Visibility="{x:Bind local:RowIcon.Hidden(IsCompressing), Mode=OneWay}"
+                                               AutomationProperties.AutomationId="RowIcon"
+                                               AutomationProperties.Name="{x:Bind local:RowIcon.Name(IsDone), Mode=OneWay}" />
+                                    <ProgressRing Width="16"
+                                                  Height="16"
+                                                  IsActive="{x:Bind IsCompressing, Mode=OneWay}"
+                                                  Visibility="{x:Bind IsCompressing, Mode=OneWay}"
+                                                  AutomationProperties.AutomationId="RowSpinner"
+                                                  AutomationProperties.Name="Compressing" />
+                                </Grid>
                                 <StackPanel Grid.Column="1">
                                     <TextBlock Text="{x:Bind FileName}"
                                                TextTrimming="CharacterEllipsis" />
@@ -175,14 +186,28 @@
                                             Spacing="6"
                                             VerticalAlignment="Center"
                                             Visibility="{x:Bind HasOutput, Mode=OneWay}">
-                                    <Button Content="Show file"
-                                            Padding="10,4"
-                                            FontSize="12"
-                                            Click="OnShowFileClick" />
-                                    <Button Content="Open in folder"
-                                            Padding="10,4"
-                                            FontSize="12"
-                                            Click="OnOpenInFolderClick" />
+                                    <Button Padding="10,4"
+                                            AutomationProperties.Name="Show file"
+                                            Click="OnShowFileClick">
+                                        <StackPanel Orientation="Horizontal"
+                                                    Spacing="6">
+                                            <FontIcon Glyph="&#xE768;"
+                                                      FontSize="12" />
+                                            <TextBlock Text="Show file"
+                                                       FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Padding="10,4"
+                                            AutomationProperties.Name="Open in folder"
+                                            Click="OnOpenInFolderClick">
+                                        <StackPanel Orientation="Horizontal"
+                                                    Spacing="6">
+                                            <FontIcon Glyph="&#xE838;"
+                                                      FontSize="12" />
+                                            <TextBlock Text="Open in folder"
+                                                       FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
                                 <Button Grid.Column="3"
                                         VerticalAlignment="Center"

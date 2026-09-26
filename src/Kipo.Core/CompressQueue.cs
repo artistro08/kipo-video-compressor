@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 
 namespace Kipo.Core;
 
@@ -20,10 +21,15 @@ public delegate Task<CompressResult> CompressWorker(QueueItem item, IProgress<do
 /// </remarks>
 /// <param name="worker">Does the actual compression.</param>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711", Justification = "It is a work queue; the name says what it does.")]
-public sealed class CompressQueue(CompressWorker worker)
+public sealed class CompressQueue(CompressWorker worker) : INotifyPropertyChanged
 {
     private readonly List<QueueItem> _batch = [];
     private Task _running = Task.CompletedTask;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>True while any row is waiting or compressing; drives the Cancel all link.</summary>
+    public bool CanCancelAny => Items.Any(item => item.CanCancel);
 
     /// <summary>Fires when the queue goes idle, with every item added since it last went idle.</summary>
     public event EventHandler<IReadOnlyList<QueueItem>>? BatchCompleted;
@@ -51,9 +57,12 @@ public sealed class CompressQueue(CompressWorker worker)
                 item.Status = ItemStatus.Failed;
             }
 
+            item.PropertyChanged += OnItemChanged;
             Items.Add(item);
             _batch.Add(item);
         }
+
+        RaiseCanCancelAny();
 
         if (_running.IsCompleted && _batch.Count > 0)
         {
@@ -93,6 +102,16 @@ public sealed class CompressQueue(CompressWorker worker)
 
         return item.Status is ItemStatus.Done or ItemStatus.DoneOverTarget ? item.OutputPath : null;
     }
+
+    private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(QueueItem.CanCancel))
+        {
+            RaiseCanCancelAny();
+        }
+    }
+
+    private void RaiseCanCancelAny() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanCancelAny)));
 
     private async Task RunAsync()
     {

@@ -106,10 +106,10 @@ public sealed class UiTests
         var ok = Retry.WhileFalse(() =>
         {
             var rows = Rows();
-            return rows.Length == count && rows.All(r => r.FindAllDescendants().Any(t => t.Name.StartsWith(status, StringComparison.Ordinal)));
+            return rows.Length == count && rows.All(r => r.FindAllDescendants().Any(t => (t.Properties.Name.ValueOrDefault ?? "").StartsWith(status, StringComparison.Ordinal)));
         }, timeout, TimeSpan.FromMilliseconds(250)).Result;
 
-        var seen = string.Join(" | ", Rows().SelectMany(r => r.FindAllDescendants()).Select(t => t.Name).Where(n => n.Length > 0));
+        var seen = string.Join(" | ", Rows().SelectMany(r => r.FindAllDescendants()).Select(t => t.Properties.Name.ValueOrDefault ?? "").Where(n => n.Length > 0));
 
         Assert.IsTrue(ok, $"Expected {count} rows with status '{status}', saw {Rows().Length}: {seen}");
     }
@@ -311,8 +311,9 @@ public sealed class UiTests
         PasteText(source);
 
         WaitForRows(1, "Already under target", Short);
-        Assert.IsNotNull(ById("CancelAllLink"));
-        Assert.AreEqual(ControlType.Hyperlink, ById("CancelAllLink").ControlType);
+
+        // Nothing left to cancel
+        Assert.IsTrue(Retry.WhileFalse(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")) is null, Short).Result, "Cancel all shown with nothing to cancel");
         Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByAutomationId("RowIcon").And(cf.ByName("Done"))), "No checkmark on finished row");
     }
 
@@ -356,15 +357,15 @@ public sealed class UiTests
 
         PasteText(source);
         WaitForRows(1, "Already under target", Short);
-        var one = SettledHeight();
+        var one = IdleHeight();
 
         PasteText(string.Join("\r\n", Enumerable.Repeat(source, 5)));
         WaitForRowCount(6);
-        var six = SettledHeight();
+        var six = IdleHeight();
 
         PasteText(string.Join("\r\n", Enumerable.Repeat(source, 2)));
         WaitForRowCount(8);
-        var eight = SettledHeight();
+        var eight = IdleHeight();
 
         Assert.IsTrue(one > empty + 20, $"Didn't grow for first row: {empty} -> {one}");
         Assert.IsTrue(six > one + 100, $"Didn't grow to six rows: {one} -> {six}");
@@ -694,7 +695,7 @@ public sealed class UiTests
 
     [STATestMethod]
     [Timeout(120_000)]
-    public void AlreadyUnderTargetRow_HasNoFileButtons()
+    public void AlreadyUnderTargetRow_HasFileButtons()
     {
         var source = TestVideos.CopyToTemp(_dir, TestVideos.Tiny);
         Launch(new AppSettings { PresetMb = 10 });
@@ -702,7 +703,30 @@ public sealed class UiTests
         PasteText(source);
         WaitForRows(1, "Already under target", Short);
 
-        Assert.IsNull(Rows()[0].FindFirstDescendant(cf => cf.ByName("Show file")), "Show file shown with no output");
+        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Show file"))), "No Show file button");
+        Assert.IsNotNull(Rows()[0].FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Open in folder"))), "No Open in folder button");
+    }
+
+    [STATestMethod]
+    [Timeout(600_000)]
+    public void CompressingRow_ShowsSpinner_AndCancelAll()
+    {
+        var sources = new[] { TestVideos.Mid, TestVideos.Large }.Select(name => TestVideos.CopyToTemp(_dir, name)).ToArray();
+        Launch(new AppSettings { UseCustom = true, CustomMb = 8, CopyToClipboard = false });
+
+        PasteText(string.Join(Environment.NewLine, sources));
+
+        var spinner = Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("RowSpinner")), Short, TimeSpan.FromMilliseconds(50)).Result;
+        var cancel  = _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink"));
+
+        Assert.IsNotNull(spinner, "No spinner while compressing");
+        Assert.IsNotNull(cancel, "No Cancel all while compressing");
+        Assert.AreEqual(ControlType.Hyperlink, cancel.ControlType);
+
+        // Window grows to fit the link; click once it has settled
+        SettledHeight();
+        ById("CancelAllLink").Click();
+        Assert.IsTrue(Retry.WhileFalse(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")) is null, Short).Result, "Cancel all still shown after cancelling");
     }
 
     [STATestMethod]
@@ -716,6 +740,14 @@ public sealed class UiTests
         Assert.IsNotNull(ById("SettingsView"));
 
         Assert.IsTrue(Math.Abs(SettledHeight() - before) <= 4, $"Settings changed the height: {before} -> {SettledHeight()}");
+    }
+
+    // Height once all rows are finished (Cancel all hidden) and the window has stopped resizing
+    private int IdleHeight()
+    {
+        Retry.WhileFalse(() => _window.FindFirstDescendant(cf => cf.ByAutomationId("CancelAllLink")) is null, Short);
+
+        return SettledHeight();
     }
 
     // Waits until the window stops resizing and returns its height

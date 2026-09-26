@@ -228,14 +228,73 @@ public sealed class CompressQueueTests
     [TestMethod]
     [DataRow(ItemStatus.Done, true)]
     [DataRow(ItemStatus.DoneOverTarget, true)]
-    [DataRow(ItemStatus.Skipped, false)]
+    [DataRow(ItemStatus.Skipped, true)]
     [DataRow(ItemStatus.Failed, false)]
     [DataRow(ItemStatus.Compressing, false)]
-    public void HasOutput_OnlyWhenAFileWasWritten(ItemStatus status, bool expected)
+    public void HasOutput_WhenThereIsAFileToShow(ItemStatus status, bool expected)
     {
         using var item = new QueueItem(P("a.mp4"), 100) { OutputPath = @"C:\v\a-compressed.mp4", Status = status };
 
         Assert.AreEqual(expected, item.HasOutput);
+    }
+
+    [TestMethod]
+    public void ResultPath_Compressed_IsOutput()
+    {
+        using var item = new QueueItem(P("a.mp4"), 100) { OutputPath = @"C:-compressed.mp4", Status = ItemStatus.Done };
+
+        Assert.AreEqual(@"C:-compressed.mp4", item.ResultPath);
+    }
+
+    [TestMethod]
+    public void ResultPath_UnderTarget_IsSource()
+    {
+        using var item = new QueueItem(P("a.mp4"), 100) { Status = ItemStatus.Skipped };
+
+        Assert.AreEqual(P("a.mp4"), item.ResultPath);
+        Assert.IsTrue(item.HasOutput);
+    }
+
+    [TestMethod]
+    [DataRow(ItemStatus.Compressing, true)]
+    [DataRow(ItemStatus.Waiting, false)]
+    [DataRow(ItemStatus.Done, false)]
+    public void IsCompressing_OnlyWhileCompressing(ItemStatus status, bool expected)
+    {
+        using var item = new QueueItem(P("a.mp4"), 100) { Status = status };
+
+        Assert.AreEqual(expected, item.IsCompressing);
+    }
+
+    [TestMethod]
+    public async Task CanCancelAny_TrueWhileWorkRemains_FalseWhenFinished()
+    {
+        var gate    = new TaskCompletionSource();
+        var queue   = new CompressQueue(async (_, _, _) => { await gate.Task; return new CompressResult(ItemStatus.Done); });
+        var changes = 0;
+        queue.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(CompressQueue.CanCancelAny)) changes++; };
+
+        Assert.IsFalse(queue.CanCancelAny);
+
+        queue.AddPaths([P("a.mp4"), P("b.mp4")], 100);
+        Assert.IsTrue(queue.CanCancelAny);
+
+        gate.SetResult();
+        await queue.WhenIdle();
+
+        Assert.IsFalse(queue.CanCancelAny);
+        Assert.IsTrue(changes >= 2, $"Only {changes} change notifications");
+    }
+
+    [TestMethod]
+    public async Task CanCancelAny_FalseWhenOnlyFailedRowsAdded()
+    {
+        var queue = new CompressQueue((item, _, _) => Done(item));
+
+        queue.AddPaths([P("missing.mp4")], 100);
+        await queue.WhenIdle();
+
+        Assert.IsFalse(queue.CanCancelAny);
     }
 
     [TestMethod]

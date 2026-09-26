@@ -68,6 +68,7 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
             if (Set(ref _status, value, nameof(StatusText), nameof(CanCancel)))
             {
                 Raise(nameof(IsDone));
+                Raise(nameof(IsCompressing));
                 Raise(nameof(HasOutput));
             }
         }
@@ -91,8 +92,22 @@ public sealed class QueueItem : INotifyPropertyChanged, IDisposable
     /// <summary>True once the file needs nothing more: compressed, or already under target. The row shows a checkmark.</summary>
     public bool IsDone => Status is ItemStatus.Done or ItemStatus.DoneOverTarget or ItemStatus.Skipped;
 
-    /// <summary>True when a compressed file was written; the row then offers Show file and Open in folder.</summary>
-    public bool HasOutput => Status is ItemStatus.Done or ItemStatus.DoneOverTarget && OutputPath is not null;
+    /// <summary>True while this file is being encoded; the row shows a spinner.</summary>
+    public bool IsCompressing => Status == ItemStatus.Compressing;
+
+    /// <summary>
+    /// The file the row's Show file and Open in folder buttons use: the compressed output,
+    /// or the original when it was already under target. Null when there's nothing to show.
+    /// </summary>
+    public string? ResultPath => Status switch
+    {
+        ItemStatus.Done or ItemStatus.DoneOverTarget => OutputPath,
+        ItemStatus.Skipped                           => Path,
+        _                                            => null,
+    };
+
+    /// <summary>True when there's a file to show; the row then offers Show file and Open in folder.</summary>
+    public bool HasOutput => ResultPath is not null;
 
     public string StatusText => Status switch
     {

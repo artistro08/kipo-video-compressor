@@ -67,6 +67,7 @@ public sealed partial class MainWindow : Window
         CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => FitToContentLater());
 
         _queue.Items.CollectionChanged += (_, _) => UpdateQueueVisibility();
+        _queue.PropertyChanged         += (_, _) => UpdateCancelAll();
 
         LoadControls();
     }
@@ -217,14 +218,13 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // Queue, separator and Cancel all only show once there are files; the window then grows to fit
+    // Queue and separator only show once there are files; the window then grows to fit
     private void UpdateQueueVisibility()
     {
         var hasItems = _queue.Items.Count > 0;
 
         QueueList.Visibility      = hasItems ? Visibility.Visible : Visibility.Collapsed;
         QueueSeparator.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
-        CancelAllLink.Visibility  = hasItems ? Visibility.Visible : Visibility.Collapsed;
 
         FitToContentLater();
     }
@@ -249,6 +249,18 @@ public sealed partial class MainWindow : Window
         {
             Log.Error(failure, ex);
             ShowError(failure);
+        }
+    }
+
+    // Cancel all only shows while a row is waiting or compressing
+    private void UpdateCancelAll()
+    {
+        var visible = _queue.CanCancelAny ? Visibility.Visible : Visibility.Collapsed;
+
+        if (CancelAllLink.Visibility != visible)
+        {
+            CancelAllLink.Visibility = visible;
+            FitToContentLater();
         }
     }
 
