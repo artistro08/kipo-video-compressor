@@ -608,7 +608,7 @@ public sealed class UiTests
 
         var zone = ById("DropZone");
 
-        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Drop, paste (Ctrl+V), or browse")), "Main line missing");
+        Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Select a video")), "Title missing");
         Assert.IsNotNull(zone.FindFirstDescendant(cf => cf.ByName("Drop, paste or browse for a video to compress.")), "Compress note missing");
     }
 

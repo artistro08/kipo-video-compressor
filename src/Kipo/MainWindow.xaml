@@ -102,7 +102,7 @@
                         <StackPanel HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Spacing="10">
-                            <TextBlock Text="Drop, paste (Ctrl+V), or browse"
+                            <TextBlock Text="Select a video"
                                        HorizontalAlignment="Center"
                                        Style="{StaticResource BodyStrongTextBlockStyle}" />
                             <TextBlock Text="Drop, paste or browse for a video to compress."
