@@ -1,0 +1,6 @@
+[*.cs]
+# Test names use Method_Scenario_Result underscores
+dotnet_diagnostic.CA1707.severity = none
+
+# Inline expected arrays read better in tests; allocation cost doesn't matter here
+dotnet_diagnostic.CA1861.severity = none

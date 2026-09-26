@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Authors>Devin Green (Artistro08)</Authors>
+    <Product>Kipo</Product>
+  </PropertyGroup>
+
+  <!-- MSIX builds of the app use their own bin/obj so they never mix with unpackaged builds -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Kipo' and '$(KipoPackaging)' == 'Msix'">
+    <BaseIntermediateOutputPath>obj\msix\</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin\msix\</BaseOutputPath>
+  </PropertyGroup>
+</Project>
