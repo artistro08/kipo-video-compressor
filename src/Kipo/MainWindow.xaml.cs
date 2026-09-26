@@ -19,7 +19,7 @@ namespace Kipo;
 /// </remarks>
 public sealed partial class MainWindow : Window
 {
-    private const int    WindowWidth        = 520;
+    private const int    WindowWidth        = 580;
     private const double DropZoneWidthShare = 0.85;
     private const double BackButtonSize     = 32;
 
@@ -50,6 +50,7 @@ public sealed partial class MainWindow : Window
         Root.Loaded             += (_, _) => _fitter.FitFirst();
         QueueView.LayoutChanged += (_, _) => _fitter.FitLater();
         QueueView.Error         += (_, message) => ShowError(message);
+        QueueView.Copied        += (_, _) => WindowChrome.ShowBriefly(CopiedBar, CopiedAlertDuration);
         QueueView.Attach(_queue);
         CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => _fitter.FitLater());
 

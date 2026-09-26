@@ -112,6 +112,53 @@ public sealed partial class UiTests
     }
 
     [STATestMethod]
+    [Timeout(600_000)]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void FinishedRow_Copy_PutsFileOnClipboard(bool inDialog)
+    {
+        var source   = TestVideos.CopyToTemp(_dir, TestVideos.Small);
+        var settings = new AppSettings { UseCustom = true, CustomMb = 1, CopyToClipboard = false };
+
+        if (inDialog)
+        {
+            LaunchCompress(settings, "8", source);
+        }
+        else
+        {
+            Launch(settings);
+            PasteText(source);
+        }
+
+        WaitForRows(1, inDialog ? "Already under target" : "Done", Long);
+        SettledHeight();
+
+        var row    = Rows()[0];
+        var copy   = row.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Copy"))) ?? throw new AssertFailedException("No Copy button");
+        var window = _window.BoundingRectangle;
+
+        Assert.IsTrue(copy.BoundingRectangle.Right <= window.Right, "Copy button cut off");
+
+        copy.Click();
+
+        var copied = Retry.WhileFalse(() =>
+        {
+            try
+            {
+                var view = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
+                return view.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems);
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                return false;
+            }
+        }, Short, TimeSpan.FromMilliseconds(200)).Result;
+
+        Assert.IsTrue(copied, "File not on the clipboard");
+        Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByName("Copied to clipboard")), Short).Result, "No copied banner");
+    }
+
+    [STATestMethod]
     [Timeout(120_000)]
     public void CustomForm_Layout()
     {

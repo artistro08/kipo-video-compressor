@@ -8,11 +8,11 @@ namespace Kipo;
 /// The file list shared by the main window and the compress dialog.
 /// </summary>
 /// <remarks>
-/// Shows one row per file (icon/spinner/checkmark, status, Open file, Open in folder,
+/// Shows one row per file (icon/spinner/checkmark, status, Copy, Open file, Open in folder,
 /// cancel) plus the separator above and the Cancel all link below. The list and separator
 /// appear once there are files; Cancel all only while something can still be cancelled.
 /// Raises <see cref="LayoutChanged"/> whenever its height changes so the window can resize,
-/// and <see cref="Error"/> with a plain-language message when a file action fails.
+/// <see cref="Copied"/> after a Copy, and <see cref="Error"/> with a plain-language message when a file action fails.
 /// </remarks>
 public sealed partial class QueueView : UserControl
 {
@@ -26,8 +26,11 @@ public sealed partial class QueueView : UserControl
     /// <summary>Fires when the list's height may have changed.</summary>
     public event EventHandler? LayoutChanged;
 
-    /// <summary>Fires with a message when Open file or Open in folder fails.</summary>
+    /// <summary>Fires with a message when Copy, Open file or Open in folder fails.</summary>
     public event EventHandler<string>? Error;
+
+    /// <summary>Fires after a row's Copy button put its file on the clipboard.</summary>
+    public event EventHandler? Copied;
 
     /// <summary>
     /// Connects the view to a queue. Call once.
@@ -78,6 +81,26 @@ public sealed partial class QueueView : UserControl
     }
 
     private void OnCancelAllClick(object sender, RoutedEventArgs e) => _queue?.CancelAll();
+
+    // Puts the row's result (compressed file, or the original when under target) on the clipboard
+    private async void OnCopyClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not QueueItem { ResultPath: { } path })
+        {
+            return;
+        }
+
+        try
+        {
+            await ClipboardInput.CopyFileAsync(path);
+            Copied?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex) when (ex.HResult < 0 || ex is IOException)
+        {
+            Log.Error("Copy to clipboard failed", ex);
+            Error?.Invoke(this, "Couldn't copy the file.");
+        }
+    }
 
     private void OnOpenFileClick(object sender, RoutedEventArgs e) => RunFileAction(sender, FileActions.OpenFile, "Couldn't open the file.");
 

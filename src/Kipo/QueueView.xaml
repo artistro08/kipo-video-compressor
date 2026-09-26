@@ -78,6 +78,17 @@
                                     VerticalAlignment="Center"
                                     Visibility="{x:Bind HasOutput, Mode=OneWay}">
                             <Button Padding="10,4"
+                                    AutomationProperties.Name="Copy"
+                                    Click="OnCopyClick">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="6">
+                                    <FontIcon Glyph="&#xE8C8;"
+                                              FontSize="12" />
+                                    <TextBlock Text="Copy"
+                                               FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                            <Button Padding="10,4"
                                     AutomationProperties.Name="Open file"
                                     Click="OnOpenFileClick">
                                 <StackPanel Orientation="Horizontal"

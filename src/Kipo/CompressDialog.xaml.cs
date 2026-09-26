@@ -21,7 +21,7 @@ namespace Kipo;
 public sealed partial class CompressDialog : Window
 {
     private const int FormWidth    = 420;
-    private const int ListWidth    = 520;
+    private const int ListWidth    = 580;
     private const int ShownFiles   = 3;
 
     private static readonly TimeSpan CopiedAlertDuration = TimeSpan.FromSeconds(3);
@@ -60,6 +60,7 @@ public sealed partial class CompressDialog : Window
         _queue.BatchCompleted   += OnBatchCompleted;
         QueueView.LayoutChanged += (_, _) => _fitter.FitLater();
         QueueView.Error         += (_, message) => Log.Error(message);
+        QueueView.Copied        += (_, _) => WindowChrome.ShowBriefly(CopiedBar, CopiedAlertDuration);
         QueueView.Attach(_queue);
         CopiedBar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => _fitter.FitLater());
         AppWindow.Closing       += OnClosing;
