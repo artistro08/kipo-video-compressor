@@ -12,8 +12,9 @@ namespace Kipo;
 /// Measures the page with unlimited height (star rows then act like Auto) to get its
 /// natural height, and eases the window there over a quarter second. Dragging the window
 /// taller than the content is blocked; dragging shorter is allowed down to the first
-/// (smallest) height the window had. The window waits off-screen until its first fit, then
-/// appears centered on the screen with the mouse, so it never shows at the wrong size.
+/// (smallest) height the window had. The window starts hidden (cloaked) and centered on the
+/// screen with the mouse, so its first layout uses that screen's scale, and appears only
+/// after its first fit, so it never shows at the wrong size.
 /// Used by the main window and the compress dialog.
 /// </remarks>
 public sealed partial class WindowFitter
@@ -31,7 +32,7 @@ public sealed partial class WindowFitter
     private readonly Func<bool> _paused;
     private int _width;
 
-    /// <summary>Parks the window off-screen until <see cref="FitFirst"/> sizes it.</summary>
+    /// <summary>Hides the window on the mouse's screen until <see cref="FitFirst"/> sizes it.</summary>
     /// <param name="window">Window to size; not shown yet.</param>
     /// <param name="width">Starting window width in DIPs; change it with <see cref="SetWidth"/>.</param>
     /// <param name="paused">Returns true while sizing should wait (for example, settings open).</param>
@@ -43,10 +44,11 @@ public sealed partial class WindowFitter
         _paused = paused;
         _width  = width;
 
-        window.AppWindow.Move(new PointInt32(OffScreen, OffScreen));
+        Cloak(true);
+        Center();
     }
 
-    private const int OffScreen = -32_000;
+    private const int DwmCloak = 13;   // DWMWA_CLOAK
 
     private AppWindow AppWindow => _window.AppWindow;
 
@@ -71,6 +73,7 @@ public sealed partial class WindowFitter
         {
             Fit(animate: false);
             Center();
+            Cloak(false);
         });
     }
 
@@ -83,6 +86,17 @@ public sealed partial class WindowFitter
 
         AppWindow.Move(new PointInt32(area.X + (area.Width - size.Width) / 2, area.Y + (area.Height - size.Height) / 2));
     }
+
+    // Cloaked windows lay out and render but aren't drawn on screen
+    private void Cloak(bool hidden)
+    {
+        var value = hidden ? 1 : 0;
+
+        _ = DwmSetWindowAttribute(WinRT.Interop.WindowNative.GetWindowHandle(_window), DwmCloak, ref value, sizeof(int));
+    }
+
+    [System.Runtime.InteropServices.LibraryImport("dwmapi.dll")]
+    private static partial int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
     [System.Runtime.InteropServices.LibraryImport("user32.dll")]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]

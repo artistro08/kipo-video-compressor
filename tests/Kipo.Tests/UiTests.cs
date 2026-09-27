@@ -868,6 +868,85 @@ public sealed partial class UiTests
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr window);
 
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
+
+    // On screen: visible and not cloaked (DWMWA_CLOAKED)
+    private static bool IsOnScreen(IntPtr window) =>
+        IsWindowVisible(window) && DwmGetWindowAttribute(window, 14, out var cloaked, sizeof(int)) == 0 && cloaked == 0;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool EnumDisplayMonitors(IntPtr dc, IntPtr clip, MonitorCallback callback, IntPtr data);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetMonitorInfoW(IntPtr monitor, ref MonitorInfo info);
+
+    private delegate bool MonitorCallback(IntPtr monitor, IntPtr dc, IntPtr rect, IntPtr data);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int Size;
+        public int Left, Top, Right, Bottom;
+        public int WorkLeft, WorkTop, WorkRight, WorkBottom;
+        public int Flags;
+    }
+
+    // Every screen's bounds in physical pixels
+    private static List<System.Drawing.Rectangle> Screens()
+    {
+        var screens = new List<System.Drawing.Rectangle>();
+
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
+        {
+            var info = new MonitorInfo { Size = System.Runtime.InteropServices.Marshal.SizeOf<MonitorInfo>() };
+
+            if (GetMonitorInfoW(monitor, ref info))
+            {
+                screens.Add(System.Drawing.Rectangle.FromLTRB(info.Left, info.Top, info.Right, info.Bottom));
+            }
+
+            return true;
+        }, IntPtr.Zero);
+
+        return screens;
+    }
+
+    [STATestMethod]
+    [Timeout(180_000)]
+    public void MainWindow_SameSizeOnEveryScreen()
+    {
+        var screens = Screens();
+
+        if (screens.Count < 2)
+        {
+            Assert.Inconclusive("Needs two or more screens");
+        }
+
+        var sizes = new List<(double Width, double Height)>();
+
+        // Open on each screen (the window follows the mouse) and measure in DIPs
+        foreach (var screen in screens)
+        {
+            Mouse.Position = new System.Drawing.Point(screen.X + screen.Width / 2, screen.Y + screen.Height / 2);
+            Launch(new AppSettings { PresetMb = 10 });
+
+            var rect  = _window.BoundingRectangle;
+            var scale = ById("DropZone").BoundingRectangle.Height / 240.0;
+
+            Assert.IsTrue(screen.Contains(rect.X + rect.Width / 2, rect.Y + rect.Height / 2), $"Window {rect} not on the mouse's screen {screen}");
+            sizes.Add((rect.Width / scale, rect.Height / scale));
+
+            _app!.Close();
+            _app.Dispose();
+            _automation!.Dispose();
+            _app = null;
+        }
+
+        Assert.IsTrue(sizes.All(size => Math.Abs(size.Width - sizes[0].Width) <= 2 && Math.Abs(size.Height - sizes[0].Height) <= 2),
+            $"Window size differs by screen: {string.Join(", ", sizes.Select(size => $"{size.Width:0}x{size.Height:0}"))}");
+    }
+
     [STATestMethod]
     [Timeout(120_000)]
     public void MainWindow_FirstShown_AtItsFinalSize()
@@ -885,8 +964,8 @@ public sealed partial class UiTests
         {
             kipo.Refresh();
 
-            if (kipo.MainWindowHandle != IntPtr.Zero && IsWindowVisible(kipo.MainWindowHandle) &&
-                GetWindowRect(kipo.MainWindowHandle, out var rect) && rect.X > -10_000)
+            if (kipo.MainWindowHandle != IntPtr.Zero && IsOnScreen(kipo.MainWindowHandle) &&
+                GetWindowRect(kipo.MainWindowHandle, out var rect))
             {
                 shown.Add(rect.Height - rect.Y);
             }

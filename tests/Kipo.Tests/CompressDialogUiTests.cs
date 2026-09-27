@@ -259,7 +259,7 @@ public sealed partial class UiTests
         Assert.IsNotNull(Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByName("Stop compressing and close?")), Short).Result, "No close prompt");
 
         var stop = _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Stop"))) ?? throw new AssertFailedException("No Stop button");
-        stop.Click();
+        stop.AsButton().Invoke();
 
         Assert.IsTrue(Retry.WhileFalse(() => _app!.HasExited, Short).Result, "Window didn't close");
         Assert.AreEqual(0, Directory.GetFiles(_dir, "*.part").Length, "Unfinished .part left behind");
@@ -289,7 +289,7 @@ public sealed partial class UiTests
 
         // The prompt's title can show before its buttons are in the tree
         var stop = Retry.WhileNull(() => _window.FindFirstDescendant(cf => cf.ByControlType(ControlType.Button).And(cf.ByName("Stop"))), Short).Result ?? throw new AssertFailedException("No Stop button");
-        stop.Click();
+        stop.AsButton().Invoke();
 
         Assert.IsTrue(Retry.WhileFalse(() => _app!.HasExited, Short).Result, "Window didn't close");
         Assert.AreEqual(0, Directory.GetFiles(_dir, "*.part").Length, "Unfinished .part left behind");
