@@ -558,6 +558,9 @@ public sealed partial class UiTests
     public void CustomSizeBox_MatchesDropdownHeight()
     {
         Launch(new AppSettings { UseCustom = true, CustomMb = 20 });
+
+        // The window opens centered under the mouse; hover changes how the fields draw
+        Mouse.MoveTo(_window.BoundingRectangle.Left + 20, _window.BoundingRectangle.Top + 20);
         Thread.Sleep(800);
 
         // Accessibility reports the dropdown taller than it draws, so measure drawn pixels
@@ -858,6 +861,42 @@ public sealed partial class UiTests
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr window, out System.Drawing.Rectangle rect);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr window);
+
+    [STATestMethod]
+    [Timeout(120_000)]
+    public void MainWindow_FirstShown_AtItsFinalSize()
+    {
+        new SettingsStore(Path.Combine(_dataDir, "settings.json")).Save(new AppSettings());
+
+        _app = Application.Launch(KipoStart([]));
+
+        using var kipo  = Process.GetProcessById(_app.ProcessId);
+        var       shown = new List<int>();
+        var       clock = Stopwatch.StartNew();
+
+        // Every height the window has while on screen during its first seconds (GetWindowRect fills right/bottom)
+        while (clock.Elapsed < TimeSpan.FromSeconds(4))
+        {
+            kipo.Refresh();
+
+            if (kipo.MainWindowHandle != IntPtr.Zero && IsWindowVisible(kipo.MainWindowHandle) &&
+                GetWindowRect(kipo.MainWindowHandle, out var rect) && rect.X > -10_000)
+            {
+                shown.Add(rect.Height - rect.Y);
+            }
+
+            Thread.Sleep(5);
+        }
+
+        Assert.IsNotEmpty(shown, "Window never showed");
+        Assert.AreEqual(1, shown.Distinct().Count(), $"Window changed size after showing: {string.Join(", ", shown.Distinct())}");
+    }
 
     [STATestMethod]
     [Timeout(120_000)]

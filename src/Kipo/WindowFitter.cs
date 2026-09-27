@@ -12,12 +12,11 @@ namespace Kipo;
 /// Measures the page with unlimited height (star rows then act like Auto) to get its
 /// natural height, and eases the window there over a quarter second. Dragging the window
 /// taller than the content is blocked; dragging shorter is allowed down to the first
-/// (smallest) height the window had. Used by the main window and the compress dialog.
+/// (smallest) height the window had. The window waits off-screen until its first fit, then
+/// appears centered on the screen with the mouse, so it never shows at the wrong size.
+/// Used by the main window and the compress dialog.
 /// </remarks>
-/// <param name="window">Window to size.</param>
-/// <param name="width">Starting window width in DIPs; change it with <see cref="SetWidth"/>.</param>
-/// <param name="paused">Returns true while sizing should wait (for example, settings open).</param>
-public sealed class WindowFitter(Window window, int width, Func<bool> paused)
+public sealed partial class WindowFitter
 {
     private static readonly TimeSpan Duration = TimeSpan.FromMilliseconds(250);
 
@@ -28,37 +27,80 @@ public sealed class WindowFitter(Window window, int width, Func<bool> paused)
     private int _to;
     private int _minOuterHeight;
 
-    private int _width = width;
+    private readonly Window _window;
+    private readonly Func<bool> _paused;
+    private int _width;
 
-    private AppWindow AppWindow => window.AppWindow;
+    /// <summary>Parks the window off-screen until <see cref="FitFirst"/> sizes it.</summary>
+    /// <param name="window">Window to size; not shown yet.</param>
+    /// <param name="width">Starting window width in DIPs; change it with <see cref="SetWidth"/>.</param>
+    /// <param name="paused">Returns true while sizing should wait (for example, settings open).</param>
+    public WindowFitter(Window window, int width, Func<bool> paused)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        _window = window;
+        _paused = paused;
+        _width  = width;
+
+        window.AppWindow.Move(new PointInt32(OffScreen, OffScreen));
+    }
+
+    private const int OffScreen = -32_000;
+
+    private AppWindow AppWindow => _window.AppWindow;
 
     /// <summary>Changes the window width (DIPs) right away; height follows its content.</summary>
     /// <param name="dips">New width.</param>
     public void SetWidth(int dips)
     {
         _width    = dips;
-        var scale = window.Content.XamlRoot?.RasterizationScale ?? 1.0;
+        var scale = _window.Content.XamlRoot?.RasterizationScale ?? 1.0;
 
         AppWindow.ResizeClient(new SizeInt32((int)(_width * scale), AppWindow.ClientSize.Height));
         FitLater();
     }
 
-    /// <summary>First show: sets the width and snaps the height without animating.</summary>
+    /// <summary>First show: sets the width, snaps the height, then brings the window on-screen.</summary>
     public void FitFirst()
     {
-        var scale = window.Content.XamlRoot?.RasterizationScale ?? 1.0;
+        var scale = _window.Content.XamlRoot?.RasterizationScale ?? 1.0;
 
         AppWindow.ResizeClient(new SizeInt32((int)(_width * scale), AppWindow.ClientSize.Height));
-        window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Fit(animate: false));
+        _window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            Fit(animate: false);
+            Center();
+        });
+    }
+
+    // Centers the window on the work area of the screen with the mouse
+    private void Center()
+    {
+        var mouse = GetCursorPos(out var point) ? new PointInt32(point.X, point.Y) : default;
+        var area  = DisplayArea.GetFromPoint(mouse, DisplayAreaFallback.Primary).WorkArea;
+        var size  = AppWindow.Size;
+
+        AppWindow.Move(new PointInt32(area.X + (area.Width - size.Width) / 2, area.Y + (area.Height - size.Height) / 2));
+    }
+
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static partial bool GetCursorPos(out CursorPoint point);
+
+    private struct CursorPoint
+    {
+        public int X;
+        public int Y;
     }
 
     /// <summary>Resizes after the current layout change lands, so the measure sees it.</summary>
     public void FitLater() =>
-        window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Fit(animate: true));
+        _window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => Fit(animate: true));
 
     private void Fit(bool animate)
     {
-        if (paused() || window.Content is not FrameworkElement page || page.XamlRoot is null)
+        if (_paused() || _window.Content is not FrameworkElement page || page.XamlRoot is null)
         {
             return;
         }
@@ -101,7 +143,7 @@ public sealed class WindowFitter(Window window, int width, Func<bool> paused)
 
         if (_timer is null)
         {
-            _timer             = window.DispatcherQueue.CreateTimer();
+            _timer             = _window.DispatcherQueue.CreateTimer();
             _timer.Interval    = TimeSpan.FromMilliseconds(15);
             _timer.IsRepeating = true;
             _timer.Tick       += OnTick;
