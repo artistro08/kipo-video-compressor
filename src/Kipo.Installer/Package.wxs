@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
     <Package Name="Kipo Video Compressor"
              Manufacturer="Devin Green"
-             Version="1.0.0"
+             Version="1.0.1"
              UpgradeCode="6F2C8A3E-4B1D-4E7A-9C55-2D8B1F0A7E43"
              Scope="perMachine">
 

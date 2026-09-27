@@ -8,7 +8,7 @@
   xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
   IgnorableNamespaces="uap rescap desktop4 desktop5 com">
 
-  <Identity Name="Kipo" Publisher="CN=Kipo Dev" Version="1.0.0.0" />
+  <Identity Name="Kipo" Publisher="CN=Kipo Dev" Version="1.0.1.0" />
 
   <Properties>
     <DisplayName>Kipo Video Compressor</DisplayName>
